@@ -4,11 +4,14 @@ import { openRepo, resolveRepoPath, type RepoContext } from '../repo.js';
 import { confirmCommand } from './commands/confirm.js';
 import { deleteCommand } from './commands/delete.js';
 import { exportCommand } from './commands/export.js';
+import { hookCommand, isHookName, type HookName } from './commands/hook.js';
+import { initCommand } from './commands/init.js';
 import { listCommand } from './commands/list.js';
 import { mcpCommand } from './commands/mcp.js';
 import { prCommand } from './commands/pr.js';
 import { showCommand } from './commands/show.js';
 import { syncCommand } from './commands/sync.js';
+import { uninstallCommand } from './commands/uninstall.js';
 import { unrecordedCommand } from './commands/unrecorded.js';
 import { whyCommand } from './commands/why.js';
 
@@ -22,13 +25,14 @@ export interface CliIo {
 
 const USAGE = [
   '用法：inloop [--repo <路徑>] <指令>',
-  '指令：list、show、why、confirm、export、pr、sync、unrecorded、delete、mcp',
+  '指令：list、show、why、confirm、export、pr、sync、unrecorded、delete、mcp、hook、init、uninstall',
 ].join('\n');
 
 class UsageError extends Error {}
 
 type PreparedCommand =
-  | { kind: 'repo'; run(context: RepoContext): void | Promise<void> }
+  | { kind: 'repo'; run(context: RepoContext): void | number | Promise<void | number> }
+  | { kind: 'hook'; name: HookName }
   | { kind: 'mcp'; repoPath: string };
 
 function positiveId(value: string | undefined): number {
@@ -171,6 +175,52 @@ function prepare(argv: string[], io: CliIo): PreparedCommand {
       const id = positiveId(parsed.positionals[0]);
       return { kind: 'repo', run: (context) => deleteCommand(context, id, parsed.values.yes, io.out) };
     }
+    case 'hook': {
+      const parsed = parseArgs({ args, options: {}, allowPositionals: true });
+      const name = parsed.positionals[0];
+      if (!isHookName(name)) throw new UsageError('不支援的 hook 名稱。');
+      const rewriteType = parsed.positionals[1];
+      const validRewrite = name === 'post-rewrite'
+        && parsed.positionals.length === 2
+        && (rewriteType === 'amend' || rewriteType === 'rebase');
+      if (parsed.positionals.length !== 1 && !validRewrite) {
+        throw new UsageError('指令參數數量不正確。');
+      }
+      return { kind: 'hook', name };
+    }
+    case 'init': {
+      const parsed = parseArgs({
+        args,
+        options: {
+          mcp: { type: 'string', default: 'user' },
+          instructions: { type: 'string', default: 'user' },
+          'no-hooks': { type: 'boolean', default: false },
+        },
+        allowPositionals: true,
+      });
+      expectPositionals(parsed.positionals, 0);
+      const mcp = parsed.values.mcp;
+      const instructions = parsed.values.instructions;
+      if (mcp !== 'user' && mcp !== 'workspace' && mcp !== 'none') {
+        throw new UsageError('--mcp 必須是 user、workspace 或 none。');
+      }
+      if (instructions !== 'user' && instructions !== 'repo' && instructions !== 'none') {
+        throw new UsageError('--instructions 必須是 user、repo 或 none。');
+      }
+      return {
+        kind: 'repo',
+        run: (context) => initCommand(context.git, {
+          mcp,
+          instructions,
+          hooks: !parsed.values['no-hooks'],
+        }, io),
+      };
+    }
+    case 'uninstall': {
+      const parsed = parseArgs({ args, options: {}, allowPositionals: true });
+      expectPositionals(parsed.positionals, 0);
+      return { kind: 'repo', run: (context) => uninstallCommand(context.git, io) };
+    }
     case 'mcp': {
       const parsed = parseArgs({ args, options: {}, allowPositionals: true });
       expectPositionals(parsed.positionals, 0);
@@ -205,10 +255,25 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
   }
 
   let context: RepoContext | undefined;
+  if (command.kind === 'hook') {
+    try {
+      context = openRepo(io.cwd);
+      const stdin = command.name === 'pre-push' || command.name === 'post-rewrite'
+        ? await io.stdin()
+        : '';
+      return hookCommand(context, command.name, stdin, io);
+    } catch (error) {
+      io.err(`InLoop hook 警告：${error instanceof Error ? error.message : String(error)}`);
+      return 0;
+    } finally {
+      context?.store.close();
+    }
+  }
+
   try {
     context = openRepo(resolveRepoPath(argv, io.env, io.cwd));
-    await command.run(context);
-    return 0;
+    const result = await command.run(context);
+    return typeof result === 'number' ? result : 0;
   } catch (error) {
     io.err(`執行失敗：${error instanceof Error ? error.message : String(error)}`);
     return 1;

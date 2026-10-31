@@ -126,12 +126,19 @@ class CliGit implements Git {
       return [];
     }
     const requestedPaths = paths?.map((value) => this.resolvePath(value));
-    const base = this.headSha() === null ? EMPTY_TREE_SHA : 'HEAD';
     const pathArgs = ['--', ...(requestedPaths ?? [])];
-    const tracked = execute(
+    let trackedResult = execute(
       this.root,
-      ['diff', '--no-color', '--no-ext-diff', '-M', '-U3', base, ...pathArgs],
-    ).stdout;
+      ['diff', '--no-color', '--no-ext-diff', '-M', '-U3', 'HEAD', ...pathArgs],
+      { allowFail: true },
+    );
+    if (!trackedResult.ok) {
+      trackedResult = execute(
+        this.root,
+        ['diff', '--no-color', '--no-ext-diff', '-M', '-U3', EMPTY_TREE_SHA, ...pathArgs],
+      );
+    }
+    const tracked = trackedResult.stdout;
     const diffs = parseUnifiedDiff(tracked).filter((file) => !file.binary);
 
     const untracked = execute(this.root, [
@@ -177,8 +184,7 @@ class CliGit implements Git {
   }
 
   stagedFiles(): string[] {
-    const base = this.headSha() === null ? [EMPTY_TREE_SHA] : [];
-    return nulList(execute(this.root, ['diff', '--cached', '--name-only', '-z', ...base]).stdout);
+    return nulList(execute(this.root, ['diff', '--cached', '--name-only', '-z']).stdout);
   }
 
   readFile(input: string): string | null {

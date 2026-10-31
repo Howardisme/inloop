@@ -137,13 +137,17 @@ class SqliteStore implements Store {
     return rows.map((row) => row.supersedes_id);
   }
 
-  private changeFromRow(row: ChangeDbRow): ChangeRow {
+  private changeFromRow(
+    row: ChangeDbRow,
+    hunks = this.hunks(row.id),
+    supersedes = this.supersedes(row.id),
+  ): ChangeRow {
     return {
       ...contentFromRow(row),
       id: row.id,
       version: row.version,
-      hunks: this.hunks(row.id),
-      supersedes: this.supersedes(row.id),
+      hunks,
+      supersedes,
       branch: row.branch,
       baseHead: row.base_head,
       client: row.client,
@@ -258,7 +262,35 @@ class SqliteStore implements Store {
 
   listChanges(): ChangeRow[] {
     const rows = this.db.prepare('SELECT * FROM changes ORDER BY id').all() as unknown as ChangeDbRow[];
-    return rows.map((row) => this.changeFromRow(row));
+    if (rows.length === 0) return [];
+
+    const hunkRows = this.db.prepare(`
+      SELECT change_id, file, old_start, new_start, added, removed,
+        context_before, context_after, fingerprint
+      FROM hunks ORDER BY change_id, position
+    `).all() as unknown as Array<HunkDbRow & { change_id: number }>;
+    const hunks = new Map<number, StoredHunk[]>();
+    for (const row of hunkRows) {
+      const values = hunks.get(row.change_id) ?? [];
+      values.push(hunkFromRow(row));
+      hunks.set(row.change_id, values);
+    }
+
+    const supersedeRows = this.db.prepare(`
+      SELECT change_id, supersedes_id FROM supersedes ORDER BY change_id, rowid
+    `).all() as unknown as Array<{ change_id: number; supersedes_id: number }>;
+    const supersedes = new Map<number, number[]>();
+    for (const row of supersedeRows) {
+      const values = supersedes.get(row.change_id) ?? [];
+      values.push(row.supersedes_id);
+      supersedes.set(row.change_id, values);
+    }
+
+    return rows.map((row) => this.changeFromRow(
+      row,
+      hunks.get(row.id) ?? [],
+      supersedes.get(row.id) ?? [],
+    ));
   }
 
   getVersions(id: number): Array<ChangeContent & { version: number; createdAt: string }> {

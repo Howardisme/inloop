@@ -72,11 +72,13 @@ function renameLookup(
 
 function scopedChanges(store: Store, git: Git): ChangeRow[] {
   const branch = git.currentBranch();
-  const reachable = git.commitsReachableFromHead();
-  return store.listChanges().filter((change) =>
-    change.branch === branch
-    || (change.commitSha !== null && reachable.has(change.commitSha))
-  );
+  let reachable: Set<string> | undefined;
+  return store.listChanges().filter((change) => {
+    if (change.branch === branch) return true;
+    if (change.commitSha === null) return false;
+    reachable ??= git.commitsReachableFromHead();
+    return reachable.has(change.commitSha);
+  });
 }
 
 function readCached(git: Git, cache: Map<string, string | null>, file: string): string | null {
@@ -253,9 +255,14 @@ function normalized(lines: string[]): string[] {
   return lines.map(normalizeLine).filter(Boolean);
 }
 
-export function findUnrecorded(store: Store, git: Git, paths?: string[]): UnrecordedHunk[] {
+export function findUnrecorded(
+  store: Store,
+  git: Git,
+  paths?: string[],
+  syncedViews?: ChangeView[],
+): UnrecordedHunk[] {
   const diffs = git.diffWorkingTree(paths);
-  const views = sync(store, git, { files: paths }).views
+  const views = (syncedViews ?? sync(store, git, { files: paths }).views)
     .filter((view) => view.existence !== 'superseded');
   const additions = new Map<string, Set<string>>();
   const removals = new Map<string, Set<string>>();
