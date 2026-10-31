@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    color-scheme: light dark;
+    font-family: var(--font-sans, system-ui, sans-serif);
+    font-size: var(--font-text-sm-size, 13px);
+    color: var(--color-text-primary, CanvasText);
+  }
+  body { margin: 0; padding: 2px 0; background: transparent; }
+  .list { border: 1px solid var(--color-border-secondary, #8884); border-radius: var(--border-radius-md, 6px); overflow: hidden; }
+  .bar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--color-background-secondary, #8881); font-size: var(--font-text-xs-size, 12px); color: var(--color-text-secondary, inherit); }
+  .bar .spacer { flex: 1; }
+  .row { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: start; padding: 8px 10px; border-top: 1px solid var(--color-border-tertiary, #8882); }
+  .row.done { opacity: .6; }
+  .id { font-family: var(--font-mono, monospace); color: var(--color-text-secondary, inherit); padding-top: 1px; }
+  .title { font-weight: var(--font-weight-semibold, 600); word-break: break-word; }
+  .key { color: var(--color-text-secondary, inherit); margin-top: 2px; word-break: break-word; }
+  .hints { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+  .badge { font-size: 11px; padding: 1px 6px; border-radius: var(--border-radius-full, 10px); background: var(--color-background-warning, #f5a62333); color: var(--color-text-warning, inherit); white-space: nowrap; }
+  .badge.ok { background: var(--color-background-success, #2ea04333); color: var(--color-text-success, inherit); }
+  .actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+  button { font: inherit; font-size: 12px; padding: 2px 8px; cursor: pointer; border-radius: var(--border-radius-sm, 4px); border: 1px solid var(--color-border-secondary, #8886); background: var(--color-background-primary, transparent); color: inherit; }
+  button.primary { background: var(--color-background-info, #0078d4); color: var(--color-text-inverse, #fff); border-color: transparent; }
+  button:disabled { opacity: .5; cursor: default; }
+  input[type=text] { width: 100%; box-sizing: border-box; margin-top: 4px; font: inherit; padding: 3px 6px; border-radius: var(--border-radius-sm, 4px); border: 1px solid var(--color-border-secondary, #8886); background: transparent; color: inherit; }
+  #msg { padding: 4px 10px 6px; font-size: 12px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<div id="root">載入中…（若一直停在這裡，代表 App 沒有收到 tool result）</div>
+<script>/*__CARD_SCRIPT__*/</script>
+</body>
+</html>

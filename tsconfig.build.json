@@ -5,5 +5,5 @@
     "outDir": "dist"
   },
   "include": ["src"],
-  "exclude": ["tests"]
+  "exclude": ["tests", "src/app"]
 }
