@@ -107,6 +107,14 @@ describe('Git', () => {
     expect(openGit(testRepo.dir).renameMap(null).get('old.ts')).toBe('new.ts');
   });
 
+  it('renameMap tolerates unknown sinceSha', () => {
+    const testRepo = repo();
+
+    expect(openGit(testRepo.dir).renameMap(
+      '0123456789abcdef0123456789abcdef01234567',
+    )).toBeInstanceOf(Map);
+  });
+
   it('resolvePath rejects escapes', () => {
     const testRepo = repo();
     const git = openGit(testRepo.dir);

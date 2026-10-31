@@ -235,7 +235,7 @@ class CliGit implements Git {
     }
 
     if (sinceSha !== null) {
-      addRenames(renames, execute(this.root, [
+      const committed = execute(this.root, [
         'log',
         '-M',
         '--name-status',
@@ -244,7 +244,10 @@ class CliGit implements Git {
         '--format=',
         '--reverse',
         `${sinceSha}..HEAD`,
-      ]).stdout);
+      ], { allowFail: true });
+      if (committed.ok) {
+        addRenames(renames, committed.stdout);
+      }
     }
     addRenames(renames, execute(this.root, [
       'diff',
