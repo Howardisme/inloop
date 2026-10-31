@@ -1,4 +1,4 @@
-﻿import type { ExistenceStatus, ReviewStatus } from '../sync/sync.js';
+import type { ExistenceStatus, ReviewStatus } from '../sync/sync.js';
 
 export const EXISTENCE_LABEL: Record<ExistenceStatus, string> = {
   present: '存在',

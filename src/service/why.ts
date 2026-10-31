@@ -1,4 +1,4 @@
-﻿import type { Git } from '../git/git.js';
+import type { Git } from '../git/git.js';
 import type { Store } from '../store/types.js';
 import {
   sync,
@@ -50,11 +50,17 @@ function coversLine(view: ChangeView, file: string, line: number): boolean {
     && location.endLine >= line);
 }
 
-export function whyQuery(store: Store, git: Git, file: string, line?: number): WhyEntry[] {
+export function whyQuery(
+  store: Store,
+  git: Git,
+  file: string,
+  line?: number,
+  views?: ChangeView[],
+): WhyEntry[] {
   const resolvedFile = git.resolvePath(file);
-  const views = sync(store, git).views;
-  const collapsed = collapsedChanges(views);
-  return views
+  const currentViews = views ?? sync(store, git).views;
+  const collapsed = collapsedChanges(currentViews);
+  return currentViews
     .filter((view) =>
       (view.existence === 'present' || view.existence === 'partial')
       && view.locations.some((location) => location.file === resolvedFile))

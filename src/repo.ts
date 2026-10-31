@@ -1,4 +1,4 @@
-﻿import { openGit, type Git } from './git/git.js';
+import { openGit, type Git } from './git/git.js';
 import { openStore, storePathFor } from './store/store.js';
 import type { Store } from './store/types.js';
 

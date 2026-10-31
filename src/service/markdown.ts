@@ -1,4 +1,4 @@
-﻿import type { ShouldKnowKind } from '../store/types.js';
+import type { ShouldKnowKind } from '../store/types.js';
 import type { ChangeView } from '../sync/sync.js';
 import { EXISTENCE_LABEL, REVIEW_LABEL } from './labels.js';
 

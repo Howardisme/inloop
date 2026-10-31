@@ -20,8 +20,9 @@ const result = await build({
 const script = result.outputFiles[0]?.text;
 if (!script) throw new Error('esbuild 沒有產生卡片程式碼');
 
+const escapedScript = script.replace(/<\/script/gi, '<\\/script');
 const template = await readFile(templatePath, 'utf8');
 if (!template.includes(marker)) throw new Error('卡片 HTML 缺少 script 標記');
 
 await mkdir(dirname(outputPath), { recursive: true });
-await writeFile(outputPath, template.replace(marker, () => script), 'utf8');
+await writeFile(outputPath, template.replace(marker, () => escapedScript), 'utf8');

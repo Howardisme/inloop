@@ -1,4 +1,4 @@
-﻿import type { ChangeView, SyncResult, UnrecordedHunk } from '../sync/sync.js';
+import type { ChangeView, SyncResult, UnrecordedHunk } from '../sync/sync.js';
 import { EXISTENCE_LABEL, REVIEW_LABEL } from '../service/labels.js';
 import type { CardRecord } from '../shared/card.js';
 

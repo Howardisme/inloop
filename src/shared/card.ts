@@ -1,4 +1,4 @@
-﻿import type { ExistenceStatus, ReviewStatus } from '../sync/sync.js';
+import type { ExistenceStatus, ReviewStatus } from '../sync/sync.js';
 
 export interface CardRecord {
   id: number;

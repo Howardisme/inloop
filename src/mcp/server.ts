@@ -1,4 +1,4 @@
-﻿import { McpServer } from '@modelcontextprotocol/server';
+import { McpServer } from '@modelcontextprotocol/server';
 import {
   getUiCapability,
   registerAppResource,
@@ -220,7 +220,7 @@ export function createServer(opts: CreateServerOptions): McpServer {
     async ({ file, line }) => withRepo(({ git, store }) => {
       if (git.config('inloop.why') === 'off') return result('InLoop why 已關閉。');
       const synced = sync(store, git);
-      return result(massChangeWarning(synced) + formatWhy(whyQuery(store, git, file, line)));
+      return result(massChangeWarning(synced) + formatWhy(whyQuery(store, git, file, line, synced.views)));
     }),
   );
 

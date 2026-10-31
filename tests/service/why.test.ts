@@ -1,10 +1,11 @@
-﻿import { join } from 'node:path';
+import { join } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
 
 import { openGit, type Git } from '../../src/git/git.js';
 import { formatWhy, whyQuery } from '../../src/service/why.js';
 import { openStore } from '../../src/store/store.js';
 import type { Store, StoredHunk } from '../../src/store/types.js';
+import { sync } from '../../src/sync/sync.js';
 import { makeRepo, type TestRepo } from '../helpers/repo.js';
 import { seedChange } from '../helpers/seed.js';
 
@@ -103,6 +104,16 @@ describe('why service', () => {
     expect(whyQuery(ctx.store, ctx.git, 'code.ts')[0]?.note).toBeNull();
     ctx.repo.remove('code.ts');
     expect(whyQuery(ctx.store, ctx.git, 'code.ts')).toEqual([]);
+  });
+
+  test('why uses pre-computed views when provided', () => {
+    const ctx = setup();
+    ctx.repo.write('code.ts', 'recorded line\n');
+    const change = seedChange(ctx.store, ctx.git, { files: ['code.ts'] });
+    const views = sync(ctx.store, ctx.git).views;
+    ctx.repo.remove('code.ts');
+
+    expect(whyQuery(ctx.store, ctx.git, 'code.ts', undefined, views)[0]?.id).toBe(change.id);
   });
 
   test('why output starts with data disclaimer and uses shared labels', () => {

@@ -1,4 +1,4 @@
-﻿import type { Git } from '../git/git.js';
+import type { Git } from '../git/git.js';
 import type { ReviewRow, ReviewSource, Store, Verdict } from '../store/types.js';
 import { snapshotHash, type ChangeView } from '../sync/sync.js';
 import { ValidationError } from './changes.js';

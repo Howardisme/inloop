@@ -1,4 +1,4 @@
-﻿import { join } from 'node:path';
+import { join } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
 
 import { openGit, type Git } from '../../src/git/git.js';

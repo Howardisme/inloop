@@ -1,4 +1,4 @@
-﻿import type { Git } from '../../src/git/git.js';
+import type { Git } from '../../src/git/git.js';
 import type { ChangeRow, NewChange, Store, StoredHunk } from '../../src/store/types.js';
 
 const DEFAULT_CHANGE: Omit<NewChange, 'hunks' | 'branch' | 'baseHead'> = {

@@ -1,4 +1,4 @@
-﻿import { PathEscapeError, type Git } from '../git/git.js';
+import { PathEscapeError, type Git } from '../git/git.js';
 import type {
   ChangeContent,
   ChangeRow,
