@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -110,7 +111,9 @@ describe('Git', () => {
     const testRepo = repo();
     const git = openGit(testRepo.dir);
 
-    expect(() => git.resolvePath('../x')).toThrow(PathEscapeError);
+    expect(() => git.resolvePath('../x')).toThrow(
+      new PathEscapeError('路徑超出 repository 範圍：../x'),
+    );
     expect(() => git.resolvePath(resolve(testRepo.dir, '..', 'outside.ts'))).toThrow(PathEscapeError);
     expect(() => git.resolvePath(testRepo.dir)).toThrow(PathEscapeError);
     expect(git.resolvePath(join(testRepo.dir, 'src', 'a.ts'))).toBe('src/a.ts');
@@ -120,7 +123,9 @@ describe('Git', () => {
   it('openGit outside repo throws NotARepoError', () => {
     const outside = mkdtempSync(join(tmpdir(), 'inloop-outside-'));
     try {
-      expect(() => openGit(outside)).toThrow(NotARepoError);
+      expect(() => openGit(outside)).toThrow(
+        new NotARepoError(`不是 git repository：${outside}`),
+      );
     } finally {
       rmSync(outside, { recursive: true, force: true, maxRetries: 5 });
     }
@@ -202,7 +207,13 @@ describe('Git', () => {
     const testRepo = repo();
     const git = openGit(testRepo.dir);
 
-    expect(() => git.run(['show', 'missing-ref'])).toThrow(/unknown revision/);
+    const failed = spawnSync('git', ['-c', 'core.quotepath=off', 'show', 'missing-ref'], {
+      cwd: testRepo.dir,
+      encoding: 'utf8',
+    });
+    expect(() => git.run(['show', 'missing-ref'])).toThrow(
+      new Error(`git show missing-ref 執行失敗：${failed.stderr}`),
+    );
     expect(git.run(['rev-parse', '--verify', 'missing-ref'], { allowFail: true })).toBe('');
     expect(git.run(['hash-object', '--stdin'], { input: 'test\n' })).toBe(
       '9daeafb9864cf43055ae93beb0afd6c7d144bfa4',

@@ -58,15 +58,14 @@ function execute(cwd: string, args: string[], opts: RunOptions = {}): RunResult 
     if (opts.allowFail) {
       return { stdout: result.stdout ?? '', ok: false };
     }
-    throw new Error(`git ${args.join(' ')} failed: ${result.error.message}`);
+    throw new Error(`git ${args.join(' ')} 執行失敗：${result.error.message}`);
   }
 
   if (result.status !== 0) {
     if (opts.allowFail) {
       return { stdout: result.stdout, ok: false };
     }
-    const stderr = result.stderr.trim();
-    throw new Error(`git ${args.join(' ')} failed${stderr ? `: ${stderr}` : ''}`);
+    throw new Error(`git ${args.join(' ')} 執行失敗：${result.stderr}`);
   }
 
   return { stdout: result.stdout, ok: true };
@@ -270,7 +269,7 @@ class CliGit implements Git {
       : `${rootForComparison}${path.sep}`;
 
     if (pathForComparison === rootForComparison || !pathForComparison.startsWith(rootPrefix)) {
-      throw new PathEscapeError(`Path escapes repository: ${input}`);
+      throw new PathEscapeError(`路徑超出 repository 範圍：${input}`);
     }
 
     return path.relative(this.root, absolutePath).split(path.sep).join('/');
@@ -285,7 +284,7 @@ class CliGit implements Git {
 export function openGit(cwd: string): Git {
   const result = execute(path.resolve(cwd), ['rev-parse', '--show-toplevel'], { allowFail: true });
   if (!result.ok) {
-    throw new NotARepoError(`Not a git repository: ${cwd}`);
+    throw new NotARepoError(`不是 git repository：${cwd}`);
   }
   return new CliGit(path.resolve(result.stdout.trim()));
 }
