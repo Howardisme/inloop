@@ -4,3 +4,4 @@ spikes/**/node_modules/
 spikes/**/dist/
 spikes/**/spike-*.json*
 *.log
+.superpowers/
