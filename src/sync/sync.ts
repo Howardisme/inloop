@@ -54,17 +54,18 @@ interface MatchedChange {
   snapshot: string;
 }
 
-type RenameLookup = (change: ChangeRow, file: string) => string;
+type RenameLookup = (file: string) => string;
 
-function renameLookup(git: Git): RenameLookup {
-  const cache = new Map<string, Map<string, string>>();
-  return (change, file) => {
-    const key = change.baseHead ?? '';
-    let renames = cache.get(key);
-    if (renames === undefined) {
-      renames = git.renameMap(change.baseHead);
-      cache.set(key, renames);
-    }
+function renameLookup(
+  git: Git,
+  changes: ChangeRow[],
+  fileCache: Map<string, string | null>,
+): RenameLookup {
+  const oldestBaseHead = changes.find((change) => change.baseHead !== null)?.baseHead ?? null;
+  let renames: Map<string, string> | undefined;
+  return (file) => {
+    if (readCached(git, fileCache, file) !== null) return file;
+    renames ??= git.renameMap(oldestBaseHead);
     return renames.get(file) ?? file;
   };
 }
@@ -115,7 +116,7 @@ function matchChange(
   const locations: Location[] = [];
 
   for (const hunk of change.hunks) {
-    const file = renamedPath(change, hunk.file);
+    const file = renamedPath(hunk.file);
     const match = matchHunk(hunk, readCached(git, fileCache, file), thresholds);
     const addedWeight = hunk.added.map(normalizeLine).filter(Boolean).length;
     const weight = hunk.added.length === 0 ? 1 : addedWeight;
@@ -172,7 +173,7 @@ function possibleReplacement(
   for (const candidate of changes) {
     if (candidate.id <= old.id) continue;
     const overlaps = old.hunks.some((oldHunk) => candidate.hunks.some((candidateHunk) =>
-      renamedPath(old, oldHunk.file) === renamedPath(candidate, candidateHunk.file)
+      renamedPath(oldHunk.file) === renamedPath(candidateHunk.file)
       && rangesOverlap(range(oldHunk), range(candidateHunk))
     ));
     if (overlaps) return candidate.id;
@@ -189,17 +190,17 @@ function selectedChanges(
   if (files === undefined) return changes;
   const requested = new Set(files.map((file) => git.resolvePath(file)));
   return changes.filter((change) =>
-    change.hunks.some((hunk) => requested.has(renamedPath(change, hunk.file)))
+    change.hunks.some((hunk) => requested.has(renamedPath(hunk.file)))
   );
 }
 
 export function sync(store: Store, git: Git, opts: SyncOptions = {}): SyncResult {
   const thresholds = opts.thresholds ?? DEFAULT_THRESHOLDS;
   const allScoped = scopedChanges(store, git);
-  const renamedPath = renameLookup(git);
+  const fileCache = new Map<string, string | null>();
+  const renamedPath = renameLookup(git, allScoped, fileCache);
   const changes = selectedChanges(allScoped, git, opts.files, renamedPath);
   const explicitReplacements = supersededBy(allScoped);
-  const fileCache = new Map<string, string | null>();
 
   const views = changes.map((change): ChangeView => {
     const matched = matchChange(change, git, thresholds, fileCache, renamedPath);
@@ -244,7 +245,7 @@ export function sync(store: Store, git: Git, opts: SyncOptions = {}): SyncResult
 
 export function snapshotHash(change: ChangeRow, git: Git): string {
   const fileCache = new Map<string, string | null>();
-  const renamedPath = renameLookup(git);
+  const renamedPath = renameLookup(git, [change], fileCache);
   return matchChange(change, git, DEFAULT_THRESHOLDS, fileCache, renamedPath).snapshot;
 }
 

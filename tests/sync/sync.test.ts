@@ -1,5 +1,5 @@
 ﻿import { join } from 'node:path';
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { openGit, type Git } from '../../src/git/git.js';
 import { EXISTENCE_LABEL, REVIEW_LABEL } from '../../src/service/labels.js';
@@ -200,6 +200,31 @@ describe('sync', () => {
     seedChange(ctx.store, ctx.git, { files: ['b.ts'] });
 
     expect(sync(ctx.store, ctx.git, { files: ['a.ts'] }).views.map((view) => view.id)).toEqual([a.id]);
+  });
+
+  test('renameMap computed at most once per sync', () => {
+    const ctx = setup();
+    const changes = Array.from({ length: 5 }, (_, index) => {
+      const file = `file-${index}.ts`;
+      ctx.repo.write(file, `export const value = ${index};\n`);
+      const change = seedChange(ctx.store, ctx.git, { files: [file] });
+      ctx.repo.commit(`add file ${index}`);
+      return change;
+    });
+    expect(new Set(changes.map((change) => change.baseHead)).size).toBe(5);
+    const renameMap = vi.spyOn(ctx.git, 'renameMap');
+
+    sync(ctx.store, ctx.git);
+    expect(renameMap).not.toHaveBeenCalled();
+
+    ctx.repo.git('mv', 'file-4.ts', 'moved.ts');
+    const result = sync(ctx.store, ctx.git);
+
+    expect(renameMap).toHaveBeenCalledTimes(1);
+    expect(result.views.find((view) => view.id === changes[4]?.id)).toMatchObject({
+      existence: 'present',
+      locations: [expect.objectContaining({ file: 'moved.ts' })],
+    });
   });
 
   test('aggregates ratios using non-blank added-line weights', () => {
