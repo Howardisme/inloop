@@ -1,0 +1,6 @@
+node_modules/
+dist/
+spikes/**/node_modules/
+spikes/**/dist/
+spikes/**/spike-*.json*
+*.log

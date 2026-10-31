@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "inloop-spike": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${workspaceFolder}/spikes/mcp-app-hello/server.mjs"]
+    }
+  }
+}
