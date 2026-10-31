@@ -62,6 +62,25 @@ describe('init and uninstall', () => {
     expect(io.out.join('\n')).toContain('pre-commit');
   });
 
+  test('warns when an existing hook exits before the appended block', () => {
+    const { repo, paths } = setup();
+    const git = openGit(repo.dir);
+    const hooksDir = git.run(['rev-parse', '--git-path', 'hooks']);
+    const hookPath = join(repo.dir, hooksDir, 'pre-commit');
+    writeFileSync(hookPath, '#!/bin/sh\nexec other-hook\n', 'utf8');
+    const captured = capture(repo.dir);
+    const cliPath = 'C:\\Program Files\\InLoop 中文\\dist\\cli\\main.js';
+
+    init(git, cliPath, {
+      mcp: 'none', instructions: 'none', hooks: true, paths,
+    }, captured.io);
+
+    const hookLine = `"${process.execPath.replaceAll('\\', '/')}" "C:/Program Files/InLoop 中文/dist/cli/main.js" hook pre-commit "$@"`;
+    expect(captured.out).toContain(
+      `注意：${hookPath} 在 InLoop 區塊前有 exec/exit，InLoop hook 可能不會執行；請手動把下面這行移到前面：${hookLine}`,
+    );
+  });
+
   test('merges into commented mcp.json without corrupting URL strings', () => {
     const { repo, paths } = setup();
     const git = openGit(repo.dir);
@@ -75,10 +94,14 @@ describe('init and uninstall', () => {
 }\n`);
     const original = readFileSync(mcpPath, 'utf8');
 
+    const captured = capture(repo.dir);
     init(git, 'D:\\inloop\\dist\\cli\\main.js', {
       mcp: 'user', instructions: 'none', hooks: false, paths,
-    }, capture(repo.dir).io);
+    }, captured.io);
 
+    expect(captured.out).toContain(
+      '注意：' + mcpPath + ' 原本的註解已移除，原檔備份在 ' + mcpPath + '.inloop-bak。',
+    );
     const parsed = JSON.parse(readFileSync(mcpPath, 'utf8')) as Record<string, unknown> & {
       servers: Record<string, unknown>;
     };

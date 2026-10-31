@@ -100,16 +100,22 @@ function installHooks(git: Git, cliPath: string, io: CliIo): void {
   const cli = forwardSlashes(resolve(cliPath));
   for (const name of HOOK_NAMES) {
     const path = join(directory, name);
-    if (read(path) === null) write(path, '#!/bin/sh\n');
+    const existing = read(path);
+    if (existing === null) write(path, '#!/bin/sh\n');
+    const hookLine = `"${executable}" "${cli}" hook ${name} "$@"`;
     const changed = appendBlock(
       path,
       HOOK_START,
       HOOK_END,
-      `"${executable}" "${cli}" hook ${name} "$@"`,
+      hookLine,
       (eof) => `# inloop-eof: ${eof}`,
     );
     if (process.platform !== 'win32') chmodSync(path, 0o755);
     if (changed) io.out(`已更新 git hook：${path}`);
+    const beforeBlock = existing?.split(HOOK_START, 1)[0] ?? '';
+    if (existing !== null && /^\s*(exec\s|exit\b)/m.test(beforeBlock)) {
+      io.out(`注意：${path} 在 InLoop 區塊前有 exec/exit，InLoop hook 可能不會執行；請手動把下面這行移到前面：${hookLine}`);
+    }
   }
 }
 
@@ -123,8 +129,9 @@ function uninstallHooks(git: Git, io: CliIo): void {
   }
 }
 
-function stripJsonc(input: string): string {
+function stripJsonc(input: string): { text: string; hadComments: boolean } {
   let output = '';
+  let hadComments = false;
   let inString = false;
   let escaped = false;
   let lineComment = false;
@@ -157,9 +164,11 @@ function stripJsonc(input: string): string {
       inString = true;
       output += char;
     } else if (char === '/' && next === '/') {
+      hadComments = true;
       lineComment = true;
       index += 1;
     } else if (char === '/' && next === '*') {
+      hadComments = true;
       blockComment = true;
       index += 1;
     } else {
@@ -191,7 +200,7 @@ function stripJsonc(input: string): string {
     }
     cleaned += char;
   }
-  return cleaned;
+  return { text: cleaned, hadComments };
 }
 
 interface McpDocument {
@@ -200,7 +209,7 @@ interface McpDocument {
 }
 
 function parseMcp(content: string): McpDocument {
-  const parsed = JSON.parse(stripJsonc(content)) as unknown;
+  const parsed = JSON.parse(stripJsonc(content).text) as unknown;
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
     throw new Error('設定內容必須是物件');
   }
@@ -223,6 +232,7 @@ function mcpEntry(cliPath: string): Record<string, unknown> {
 
 function installMcp(path: string, cliPath: string, io: CliIo): void {
   const current = read(path);
+  const hadComments = current !== null && stripJsonc(current).hadComments;
   let document: McpDocument;
   try {
     document = current === null ? {} : parseMcp(current);
@@ -232,15 +242,16 @@ function installMcp(path: string, cliPath: string, io: CliIo): void {
   }
   document.servers ??= {};
   document.servers.inloop = mcpEntry(cliPath);
-  if (current !== null) {
-    const backup = `${path}.inloop-bak`;
-    if (!existsSync(backup)) {
-      copyFileSync(path, backup);
-      io.out(`已備份 MCP 設定：${backup}`);
-    }
+  const backup = `${path}.inloop-bak`;
+  if (current !== null && !existsSync(backup)) {
+    copyFileSync(path, backup);
+    io.out(`已備份 MCP 設定：${backup}`);
   }
   write(path, `${JSON.stringify(document, null, 2)}\n`);
   io.out(`已更新 MCP 設定：${path}`);
+  if (hadComments) {
+    io.out(`注意：${path} 原本的註解已移除，原檔備份在 ${backup}。`);
+  }
 }
 
 function uninstallMcp(path: string, io: CliIo): void {
