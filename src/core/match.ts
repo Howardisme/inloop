@@ -51,24 +51,28 @@ function normalizedFileLines(fileText: string): NormalizedFileLine[] {
 
 function longestRun(needle: string[], file: NormalizedFileLine[]): BestRun {
   let best: BestRun = { length: 0, startLine: null, endLine: null };
+  const row = new Uint32Array(needle.length + 1);
 
-  for (let fileStart = 0; fileStart < file.length; fileStart += 1) {
-    for (let needleStart = 0; needleStart < needle.length; needleStart += 1) {
-      let length = 0;
-      while (
-        fileStart + length < file.length
-        && needleStart + length < needle.length
-        && file[fileStart + length]?.text === needle[needleStart + length]
-      ) {
-        length += 1;
+  for (let fileIndex = 0; fileIndex < file.length; fileIndex += 1) {
+    const fileLine = file[fileIndex];
+    for (let needleIndex = needle.length - 1; needleIndex >= 0; needleIndex -= 1) {
+      const rowIndex = needleIndex + 1;
+      if (fileLine?.text !== needle[needleIndex]) {
+        row[rowIndex] = 0;
+        continue;
       }
 
+      const length = (row[needleIndex] ?? 0) + 1;
+      row[rowIndex] = length;
       if (length > best.length) {
         best = {
           length,
-          startLine: file[fileStart]?.lineNumber ?? null,
-          endLine: file[fileStart + length - 1]?.lineNumber ?? null,
+          startLine: file[fileIndex - length + 1]?.lineNumber ?? null,
+          endLine: fileLine.lineNumber,
         };
+        if (best.length === needle.length) {
+          return best;
+        }
       }
     }
   }

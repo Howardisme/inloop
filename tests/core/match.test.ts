@@ -116,4 +116,15 @@ describe('matchHunk', () => {
       endLine: null,
     });
   });
+
+  it('stays fast on repetitive input', () => {
+    const lines = Array.from({ length: 2_000 }, () => '}');
+    const startedAt = performance.now();
+
+    const result = matchHunk(hunk(lines), lines.join('\n'));
+    const elapsed = performance.now() - startedAt;
+
+    expect(result.ratio).toBe(1);
+    expect(elapsed).toBeLessThan(200);
+  });
 });
