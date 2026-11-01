@@ -203,6 +203,81 @@ describe('InLoop MCP server', () => {
     expect(text(shown)).toContain('### #1 加入答案常數 `unreviewed`');
   });
 
+  test('confirm_list with ids lists and pre-checks only those records', async () => {
+    const repo = repoWithChange();
+    let elicitationParams: Record<string, unknown> | undefined;
+    const { client } = await connect(repo.dir, FORM_CAPABILITIES, async (request) => {
+      elicitationParams = request.params;
+      return { action: 'accept', content: { confirmed: ['2'] } };
+    });
+    await record(client);
+    repo.write('src/second.ts', 'export const second = 2;\n');
+    await record(client, { title: '加入第二個常數', files: ['src/second.ts'] });
+
+    const result = await client.callTool({ name: 'confirm_list', arguments: { ids: [2] } });
+    const shown = await client.callTool({ name: 'show_review', arguments: { scope: 'all' } });
+
+    const confirmed = (elicitationParams?.requestedSchema as {
+      properties: { confirmed: { default?: string[]; items: { anyOf: Array<{ const: string }> } } };
+    }).properties.confirmed;
+    expect(confirmed.items.anyOf.map((option) => option.const)).toEqual(['2']);
+    expect(confirmed.default).toEqual(['2']);
+    expect(text(result)).toContain('#2');
+    expect(text(shown)).toContain('### #1 加入答案常數 `unreviewed`');
+    expect(text(shown)).toContain('### #2 加入第二個常數 `confirmed`');
+  });
+
+  test('confirm_list with scope pre-checks every pending record in it', async () => {
+    const repo = repoWithChange();
+    let elicitationParams: Record<string, unknown> | undefined;
+    const { client } = await connect(repo.dir, FORM_CAPABILITIES, async (request) => {
+      elicitationParams = request.params;
+      return { action: 'cancel' };
+    });
+    await record(client);
+    repo.write('src/second.ts', 'export const second = 2;\n');
+    await record(client, { title: '加入第二個常數', files: ['src/second.ts'] });
+
+    await client.callTool({ name: 'confirm_list', arguments: { scope: 'all' } });
+
+    const confirmed = (elicitationParams?.requestedSchema as {
+      properties: { confirmed: { default?: string[] } };
+    }).properties.confirmed;
+    expect(confirmed.default).toEqual(['1', '2']);
+  });
+
+  test('confirm_list without ids or scope pre-checks nothing', async () => {
+    const repo = repoWithChange();
+    let elicitationParams: Record<string, unknown> | undefined;
+    const { client } = await connect(repo.dir, FORM_CAPABILITIES, async (request) => {
+      elicitationParams = request.params;
+      return { action: 'cancel' };
+    });
+    await record(client);
+
+    await client.callTool({ name: 'confirm_list', arguments: {} });
+
+    const confirmed = (elicitationParams?.requestedSchema as {
+      properties: { confirmed: { default?: string[] } };
+    }).properties.confirmed;
+    expect(confirmed.default).toBeUndefined();
+  });
+
+  test('confirm_list with ids that are not pending opens no form', async () => {
+    const repo = repoWithChange();
+    let opened = false;
+    const { client } = await connect(repo.dir, FORM_CAPABILITIES, async () => {
+      opened = true;
+      return { action: 'cancel' };
+    });
+    await record(client);
+
+    const result = await client.callTool({ name: 'confirm_list', arguments: { ids: [99] } });
+
+    expect(opened).toBe(false);
+    expect(text(result)).toContain('沒有符合的未 review 紀錄');
+  });
+
   test('bad repo path returns isError and the server keeps responding', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'inloop-not-repo-'));
     temporaryDirectories.push(directory);

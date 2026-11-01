@@ -38,7 +38,7 @@ flowchart LR
 ```
 
 1. **Record.** After each meaningful change, Copilot calls `record_change`. InLoop takes the hunks from `git diff`, fingerprints them, and skips anything already recorded. `find_unrecorded` and the pre-commit hook catch changes the agent forgot.
-2. **Review.** `/inloop.review` prints the records as Markdown and shows a list card. Press **Confirmed**, **Incorrect** or **Not important**, or say "open the confirm list" to tick several at once. Highlight any line of the Markdown and use **Ask in Side Panel** to dig in.
+2. **Review.** `/inloop.review` prints the records as Markdown and shows a list card. Press **Confirmed**, **Incorrect** or **Not important**, or say "open the confirm list" to tick several at once — or just tell Copilot what you've understood ("confirm #3 and #4") and it opens the form with those records pre-checked. Highlight any line of the Markdown and use **Ask in Side Panel** to dig in.
 3. **Stay true.** Records are append-only. Every read runs `sync`, which matches each record's hunks against the current files and derives its status. Nothing about the code's state is stored as fact, so edits, reverts, amends, rebases and renames never leave stale records.
 4. **Look it up.** Ask "why is line 42 of `retry.ts` written this way?" — Copilot calls `why` and gets the records covering that line.
 
@@ -119,6 +119,7 @@ For common installation and startup questions, see the [FAQ](docs/faq.md).
 | --- | --- |
 | `/inloop.review [scope]` | Show records — unreviewed (default), `all`, `today`, a file, or `since:<ref>` |
 | "open the confirm list" | A checklist form above the chat input; only you can submit it |
+| "confirm #3 and #4" / "confirm everything in README.md" / "confirm all" | The same form, with exactly those records pre-checked — one click to submit |
 | `/inloop.capture` | Record changes the agent missed |
 | `/inloop.why <file[:line]>` | Why is this code written this way? |
 

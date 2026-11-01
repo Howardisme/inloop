@@ -265,13 +265,31 @@ export function createServer(opts: CreateServerOptions): McpServer {
     'confirm_list',
     {
       title: '開啟 InLoop 確認清單',
-      description: '開啟確認表單。表單由使用者作答，你不能代替使用者確認。',
-      inputSchema: z.object({}),
+      description: '開啟確認表單，由使用者勾選送出；你不能代替使用者確認。'
+        + '只有使用者明確要求確認某些紀錄或某個範圍時（例如「#3、#4 確認」、「README 的都確認」、「全部確認」），'
+        + '才帶 ids 或 scope，表單會預先勾好，使用者按送出才算確認。使用者沒有要求時不要自行呼叫。',
+      inputSchema: z.object({
+        ids: z.array(z.number().int().positive()).optional()
+          .describe('使用者明確提到要確認的紀錄編號'),
+        scope: z.string().optional()
+          .describe('使用者要確認的範圍：all、today、檔案路徑或 since:<ref>'),
+      }),
     },
-    async () => withRepo(async ({ git, store }) => {
+    async ({ ids: requestedIds, scope }) => withRepo(async ({ git, store }) => {
       const synced = sync(store, git);
-      const pending = selectScope(synced.views, parseScope(), git);
-      if (pending.length === 0) return result('沒有未 review 的紀錄。');
+      let candidates = selectScope(synced.views, parseScope(), git);
+      if (scope !== undefined) {
+        const inScope = new Set(selectScope(synced.views, parseScope(scope), git).map((view) => view.id));
+        candidates = candidates.filter((view) => inScope.has(view.id));
+      }
+      if (requestedIds !== undefined) {
+        const wanted = new Set(requestedIds);
+        candidates = candidates.filter((view) => wanted.has(view.id));
+      }
+      const targeted = requestedIds !== undefined || scope !== undefined;
+      if (candidates.length === 0) {
+        return result(targeted ? '沒有符合的未 review 紀錄。' : '沒有未 review 的紀錄。');
+      }
       let elicited;
       try {
         elicited = await server.server.elicitInput({
@@ -284,11 +302,13 @@ export function createServer(opts: CreateServerOptions): McpServer {
                 type: 'array',
                 title: 'Records to confirm',
                 items: {
-                  anyOf: pending.map((view) => ({
+                  anyOf: candidates.map((view) => ({
                     const: String(view.id),
                     title: `#${view.id} ${view.title} — ${view.keyPoint}`,
                   })),
                 },
+                // Pre-check what the user asked for; the user still has to submit the form.
+                ...(targeted ? { default: candidates.map((view) => String(view.id)) } : {}),
               },
               note: { type: 'string', title: 'Note (optional)' },
             },
@@ -300,8 +320,9 @@ export function createServer(opts: CreateServerOptions): McpServer {
       if (elicited.action === 'decline') return result('使用者拒絕了表單。');
       if (elicited.action === 'cancel') return result('使用者取消了表單。');
       const content = elicited.content as { confirmed?: unknown; note?: unknown } | undefined;
+      const offered = new Set(candidates.map((view) => view.id));
       const ids = Array.isArray(content?.confirmed)
-        ? content.confirmed.map(Number).filter(Number.isInteger)
+        ? content.confirmed.map(Number).filter((id) => Number.isInteger(id) && offered.has(id))
         : [];
       const note = typeof content?.note === 'string' ? content.note : undefined;
       if (ids.length === 0) return result('使用者沒有勾選任何紀錄。');
