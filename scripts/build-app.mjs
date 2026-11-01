@@ -6,7 +6,10 @@ import { build } from 'esbuild';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const templatePath = resolve(repoRoot, 'src/app/card.html');
-const outputPath = resolve(repoRoot, 'dist/app/review-list.html');
+// Tests point this elsewhere so they never overwrite the real build output.
+const outputPath = process.env.INLOOP_APP_OUT
+  ? resolve(process.env.INLOOP_APP_OUT)
+  : resolve(repoRoot, 'dist/app/review-list.html');
 const marker = '/*__CARD_SCRIPT__*/';
 
 const result = await build({
