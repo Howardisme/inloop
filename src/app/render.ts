@@ -1,4 +1,4 @@
-import { EXISTENCE_LABEL, REVIEW_LABEL } from '../service/labels.js';
+import { EXISTENCE_LABEL_EN, REVIEW_LABEL_EN } from '../service/labels.js';
 import type { CardRecord } from '../shared/card.js';
 import type { Verdict } from '../store/types.js';
 
@@ -48,7 +48,7 @@ export function renderList(root: HTMLElement, records: CardRecord[], handlers: C
       }
       message = result.text;
     } catch (error) {
-      message = `呼叫失敗：${errorText(error)}`;
+      message = `Call failed: ${errorText(error)}`;
     }
     render();
   };
@@ -73,26 +73,26 @@ export function renderList(root: HTMLElement, records: CardRecord[], handlers: C
     const hints = element('div', 'hints');
     if (record.existence !== 'present') {
       const existence = element('span', 'badge');
-      existence.textContent = EXISTENCE_LABEL[record.existence];
+      existence.textContent = EXISTENCE_LABEL_EN[record.existence];
       hints.append(existence);
     }
     if (!done && record.review !== 'unreviewed') {
       const review = element('span', record.review === 'confirmed' ? 'badge ok' : 'badge');
-      review.textContent = REVIEW_LABEL[record.review];
+      review.textContent = REVIEW_LABEL_EN[record.review];
       hints.append(review);
     }
     if (hints.childElementCount > 0) content.append(hints);
 
     const noteInput = element('input');
     noteInput.type = 'text';
-    noteInput.placeholder = '我的理解不同／有疑問（可留空）';
+    noteInput.placeholder = 'Different understanding or a question (optional)';
     noteInput.hidden = true;
     content.append(noteInput);
 
     const actions = element('div', 'actions');
     if (done) {
       const badge = element('span', 'badge ok');
-      badge.textContent = REVIEW_LABEL[localVerdict ?? record.review];
+      badge.textContent = REVIEW_LABEL_EN[localVerdict ?? record.review];
       actions.append(badge);
     } else {
       actions.append(
@@ -101,10 +101,10 @@ export function renderList(root: HTMLElement, records: CardRecord[], handlers: C
           noteInput.hidden = !noteInput.hidden;
           if (!noteInput.hidden) noteInput.focus();
         }),
-        button('說明不正確', () => void submit([record.id], 'incorrect', noteInput.value.trim())),
-        button('不重要', () => void submit([record.id], 'unimportant', noteInput.value.trim())),
+        button('Incorrect', () => void submit([record.id], 'incorrect', noteInput.value.trim())),
+        button('Not important', () => void submit([record.id], 'unimportant', noteInput.value.trim())),
       );
-      actions.children[1]?.setAttribute('title', '寫備註');
+      actions.children[1]?.setAttribute('title', 'Add note');
     }
 
     row.append(id, content, actions);
@@ -116,10 +116,10 @@ export function renderList(root: HTMLElement, records: CardRecord[], handlers: C
     const list = element('div', 'list');
     const bar = element('div', 'bar');
     const heading = element('span');
-    heading.textContent = `InLoop review · ${pending.length} 筆未 review／共 ${records.length} 筆`;
+    heading.textContent = `InLoop review · ${pending.length} unreviewed / ${records.length} total`;
     const spacer = element('span', 'spacer');
     const confirmAll = button(
-      '全部確認',
+      'Confirm all',
       () => void submit(pending.map((record) => record.id), 'confirmed', ''),
     );
     confirmAll.disabled = pending.length === 0;

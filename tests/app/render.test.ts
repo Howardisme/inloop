@@ -39,6 +39,12 @@ describe('renderList', () => {
 
     expect(root.querySelector('img')).toBeNull();
     expect(root.textContent).toContain(title);
+    expect(root.textContent).toContain('InLoop review · 1 unreviewed / 1 total');
+    expect(findButton(root, 'Incorrect')).toBeInstanceOf(HTMLButtonElement);
+    expect(findButton(root, 'Not important')).toBeInstanceOf(HTMLButtonElement);
+    expect(findButton(root, '✎').title).toBe('Add note');
+    expect(root.querySelector('input')?.placeholder)
+      .toBe('Different understanding or a question (optional)');
   });
 
   it('confirm calls handler with id and note', async () => {
@@ -46,7 +52,7 @@ describe('renderList', () => {
     const handlers: CardHandlers = {
       submit: async (ids, verdict, note) => {
         calls.push([ids, verdict, note]);
-        return { ok: true, text: '已儲存' };
+        return { ok: true, text: 'Saved' };
       },
     };
     renderList(root, [record(7)], handlers);
@@ -59,7 +65,7 @@ describe('renderList', () => {
 
     await vi.waitFor(() => {
       expect(calls).toEqual([[[7], 'confirmed', '備註']]);
-      expect(root.textContent).toContain('已確認');
+      expect(root.textContent).toContain('confirmed');
     });
     expect(root.querySelector('.row')?.classList.contains('done')).toBe(true);
   });
@@ -69,7 +75,7 @@ describe('renderList', () => {
     const handlers: CardHandlers = {
       submit: async (ids, verdict, note) => {
         calls.push([ids, verdict, note]);
-        return { ok: true, text: '已儲存' };
+        return { ok: true, text: 'Saved' };
       },
     };
     renderList(root, [
@@ -85,7 +91,7 @@ describe('renderList', () => {
     if (!(firstConfirm instanceof HTMLButtonElement)) throw new Error('找不到單筆確認按鈕');
     firstConfirm.click();
     await vi.waitFor(() => expect(calls).toHaveLength(1));
-    findButton(root, '全部確認').click();
+    findButton(root, 'Confirm all').click();
 
     await vi.waitFor(() => {
       expect(calls).toEqual([
@@ -93,8 +99,8 @@ describe('renderList', () => {
         [[2, 3], 'confirmed', ''],
       ]);
     });
-    expect(findButton(root, '全部確認').disabled).toBe(true);
-    expect(root.textContent).toContain('InLoop review · 0 筆未 review／共 5 筆');
+    expect(findButton(root, 'Confirm all').disabled).toBe(true);
+    expect(root.textContent).toContain('InLoop review · 0 unreviewed / 5 total');
   });
 
   it('shows one badge and no actions for already handled rows', () => {
@@ -104,7 +110,7 @@ describe('renderList', () => {
 
     const row = root.querySelector('.row');
     expect(row?.querySelectorAll('.badge')).toHaveLength(1);
-    expect(row?.textContent).toContain('已確認');
+    expect(row?.textContent).toContain('confirmed');
     expect(row?.querySelector('button')).toBeNull();
   });
   it('shows existence hint', () => {
@@ -112,7 +118,18 @@ describe('renderList', () => {
       submit: async () => ({ ok: true, text: '' }),
     });
 
-    expect(root.querySelector('.row')?.textContent).toContain('已被修改');
+    expect(root.querySelector('.row')?.textContent).toContain('modified');
+  });
+
+  it('shows the English failure prefix when submit throws', async () => {
+    renderList(root, [record(1)], {
+      submit: async () => { throw new Error('offline'); },
+    });
+
+    findButton(root, 'Confirmed').click();
+
+    await vi.waitFor(() => expect(root.querySelector('#msg')?.textContent)
+      .toBe('Call failed: offline'));
   });
 
   it('shows an error and keeps actions enabled when submit fails', async () => {
@@ -124,6 +141,6 @@ describe('renderList', () => {
 
     await vi.waitFor(() => expect(root.querySelector('#msg')?.textContent).toContain('儲存失敗'));
     expect(findButton(root, 'Confirmed').disabled).toBe(false);
-    expect(findButton(root, '全部確認').disabled).toBe(false);
+    expect(findButton(root, 'Confirm all').disabled).toBe(false);
   });
 });

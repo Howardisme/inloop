@@ -15,3 +15,19 @@ export const REVIEW_LABEL: Record<ReviewStatus, string> = {
   incorrect: '說明不正確',
   unimportant: '不重要',
 };
+
+export const EXISTENCE_LABEL_EN: Record<ExistenceStatus, string> = {
+  present: 'present',
+  partial: 'modified',
+  gone: 'gone',
+  discarded: 'discarded',
+  superseded: 'superseded',
+};
+
+export const REVIEW_LABEL_EN: Record<ReviewStatus, string> = {
+  unreviewed: 'unreviewed',
+  confirmed: 'confirmed',
+  changed_after_confirm: 'changed after confirm',
+  incorrect: 'incorrect',
+  unimportant: 'not important',
+};

@@ -121,7 +121,7 @@ describe('InLoop MCP server', () => {
 
     expect(text(recorded)).toBe('已記錄 #1：加入答案常數');
     expect(text(shown)).toContain('### #1 加入答案常數');
-    expect(text(shown)).toContain('> **重點**');
+    expect(text(shown)).toContain('> **Key point:**');
     expect(shown.structuredContent).toMatchObject({ records: [{ id: 1, file: 'src/example.ts' }] });
     const meta = shown._meta as { ui?: { resourceUri?: string } } | undefined;
     expect(meta?.ui?.resourceUri).toBe(REVIEW_RESOURCE_URI);
@@ -140,12 +140,12 @@ describe('InLoop MCP server', () => {
 
   test('confirm_list accept writes form reviews', async () => {
     const repo = repoWithChange();
-    let requestedSchema: Record<string, unknown> | undefined;
+    let elicitationParams: Record<string, unknown> | undefined;
     const { client } = await connect(
       repo.dir,
       FORM_CAPABILITIES,
       async (request) => {
-        requestedSchema = request.params.requestedSchema as Record<string, unknown>;
+        elicitationParams = request.params;
         return { action: 'accept', content: { confirmed: ['1'], note: '已理解' } };
       },
     );
@@ -154,8 +154,18 @@ describe('InLoop MCP server', () => {
     const result = await client.callTool({ name: 'confirm_list', arguments: {} });
     const shown = await client.callTool({ name: 'show_review', arguments: { scope: 'all' } });
 
-    expect(requestedSchema).toMatchObject({
-      properties: { confirmed: { type: 'array', items: { anyOf: [{ const: '1' }] } } },
+    expect(elicitationParams).toMatchObject({
+      message: 'Check the records you understand and want to confirm (multiple allowed). Add a note only if your understanding differs.',
+      requestedSchema: {
+        properties: {
+          confirmed: {
+            type: 'array',
+            title: 'Records to confirm',
+            items: { anyOf: [{ const: '1', title: '#1 加入答案常數 — 集中管理共用答案。' }] },
+          },
+          note: { type: 'string', title: 'Note (optional)' },
+        },
+      },
     });
     expect(text(result)).toContain('#1');
     expect(shown.structuredContent).toMatchObject({ records: [{ id: 1, review: 'confirmed' }] });
@@ -269,13 +279,21 @@ describe('InLoop MCP server', () => {
     const repo = repoWithChange();
     const { client } = await connect(repo.dir, UI_CAPABILITIES);
     await record(client);
+    repo.write('src/second.ts', 'export const second = 2;\n');
+    await record(client, {
+      title: '加入第二個常數',
+      files: ['src/second.ts'],
+    });
 
-    await client.callTool({
+    const submitted = await client.callTool({
       name: 'submit_review',
-      arguments: { ids: [1], verdict: 'unimportant', note: '不需追蹤' },
+      arguments: { ids: [1, 2], verdict: 'confirmed', note: '已理解' },
     });
     const shown = await client.callTool({ name: 'show_review', arguments: { scope: 'all' } });
 
-    expect(shown.structuredContent).toMatchObject({ records: [{ id: 1, review: 'unimportant' }] });
+    expect(text(submitted)).toBe('Saved: #1, #2 → confirmed');
+    expect(shown.structuredContent).toMatchObject({
+      records: [{ id: 1, review: 'confirmed' }, { id: 2, review: 'confirmed' }],
+    });
   });
 });

@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { NotARepoError, openGit } from '../git/git.js';
 import { openRepo, resolveRepoPath, type RepoContext } from '../repo.js';
 import { ValidationError, amendChange, recordChange } from '../service/changes.js';
+import { REVIEW_LABEL_EN } from '../service/labels.js';
 import { renderReviewMarkdown } from '../service/markdown.js';
 import { parseScope, selectScope, submitReview } from '../service/review.js';
 import { formatWhy, whyQuery } from '../service/why.js';
@@ -276,13 +277,13 @@ export function createServer(opts: CreateServerOptions): McpServer {
       try {
         elicited = await server.server.elicitInput({
           mode: 'form',
-          message: '勾選你已讀懂、要確認的紀錄（可多選）。有不同理解再填備註。',
+          message: 'Check the records you understand and want to confirm (multiple allowed). Add a note only if your understanding differs.',
           requestedSchema: {
             type: 'object',
             properties: {
               confirmed: {
                 type: 'array',
-                title: '要確認的紀錄',
+                title: 'Records to confirm',
                 items: {
                   anyOf: pending.map((view) => ({
                     const: String(view.id),
@@ -290,7 +291,7 @@ export function createServer(opts: CreateServerOptions): McpServer {
                   })),
                 },
               },
-              note: { type: 'string', title: '備註（可留空）' },
+              note: { type: 'string', title: 'Note (optional)' },
             },
           },
         });
@@ -388,7 +389,7 @@ export function createServer(opts: CreateServerOptions): McpServer {
       },
       async ({ ids, verdict, note }) => withRepo(({ git, store }) => {
         submitReview(store, git, { ids, verdict, note, source: 'card' });
-        return result(`${ids.map((id) => `#${id}`).join('、')}：已儲存 review`);
+        return result(`Saved: ${ids.map((id) => `#${id}`).join(', ')} → ${REVIEW_LABEL_EN[verdict]}`);
       }),
     );
   };

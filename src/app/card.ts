@@ -11,7 +11,7 @@ import type { CardRecord } from '../shared/card.js';
 
 const version = '0.1.0';
 const root = document.getElementById('root');
-if (!root) throw new Error('找不到卡片根元素');
+if (!root) throw new Error('Card root element not found');
 
 const app = new App({ name: 'inloop-review-list', version });
 
@@ -40,7 +40,7 @@ app.ontoolresult = (params) => {
       } catch (error) {
         return {
           ok: false,
-          text: `呼叫失敗：${error instanceof Error ? error.message : String(error)}`,
+          text: `Call failed: ${error instanceof Error ? error.message : String(error)}`,
         };
       }
     },
@@ -50,5 +50,5 @@ app.ontoolresult = (params) => {
 app.connect()
   .then(() => applyContext(app.getHostContext()))
   .catch((error: unknown) => {
-    root.textContent = `App 連線失敗：${error instanceof Error ? error.message : String(error)}`;
+    root.textContent = `App connection failed: ${error instanceof Error ? error.message : String(error)}`;
   });

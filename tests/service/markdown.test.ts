@@ -39,13 +39,13 @@ function view(overrides: Partial<ChangeView> = {}): ChangeView {
 describe('review markdown', () => {
   test('renders the exact record shape', () => {
     expect(renderReviewMarkdown([view()])).toBe([
-      '### #14 標題　`未 review`',
-      '> **重點**：重點',
+      '### #14 標題 `unreviewed`',
+      '> **Key point:** 重點',
       '',
-      '- **What & How**：做法',
-      '- **Why**：原因',
+      '- **What & How:** 做法',
+      '- **Why:** 原因',
       '- **You should know**',
-      '  - **概念**｜概念',
+      '  - **Concept** | 概念',
       '',
       '```diff',
       '@@ src/a.ts:3 @@',
@@ -67,7 +67,7 @@ describe('review markdown', () => {
     expect(output).toContain('\\<img src=x\\>');
     expect(output).not.toMatch(/(?<!\\)<img/);
     expect(output).toContain('\\<重點\\>');
-    expect(output).toContain('**風險**｜\\<風險\\>');
+    expect(output).toContain('**Risk** | \\<風險\\>');
   });
 
   test('adds existence and possible replacement indicators', () => {
@@ -77,8 +77,8 @@ describe('review markdown', () => {
       possiblySupersededBy: 20,
     })]);
 
-    expect(output).toContain('### #14 標題　`確認後又改過・已被修改`');
-    expect(output).toContain('> **重點**：重點\n> 可能已被 #20 取代\n\n- **What & How**');
+    expect(output).toContain('### #14 標題 `changed after confirm · modified`');
+    expect(output).toContain('> **Key point:** 重點\n> Possibly superseded by #20\n\n- **What & How:**');
   });
 
   test('omits an empty core diff and separates records', () => {
@@ -97,7 +97,7 @@ describe('review markdown', () => {
   });
 
   test('returns a friendly empty message', () => {
-    expect(renderReviewMarkdown([])).toBe('目前沒有需要 review 的紀錄。');
+    expect(renderReviewMarkdown([])).toBe('Nothing to review.');
   });
 });
 
