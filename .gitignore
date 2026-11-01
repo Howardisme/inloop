@@ -5,3 +5,4 @@ spikes/**/dist/
 spikes/**/spike-*.json*
 *.log
 .superpowers/
+Inloop.md
