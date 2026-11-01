@@ -14,6 +14,7 @@ const root = document.getElementById('root');
 if (!root) throw new Error('Card root element not found');
 
 const app = new App({ name: 'inloop-review-list', version });
+let scope: string | undefined;
 
 function applyContext(context: McpUiHostContext | undefined): void {
   if (!context) return;
@@ -22,9 +23,33 @@ function applyContext(context: McpUiHostContext | undefined): void {
   if (context.styles?.css?.fonts) applyHostFonts(context.styles.css.fonts);
 }
 
+async function loadRecords(): Promise<CardRecord[]> {
+  const result = await app.callServerTool({
+    name: 'review_records',
+    arguments: scope ? { scope } : {},
+  });
+  if (result.isError) throw new Error(result.content.map((item) => (item.type === 'text' ? item.text : '')).join('\n'));
+  return (result.structuredContent as { records?: CardRecord[] } | undefined)?.records ?? [];
+}
+
 app.onhostcontextchanged = applyContext;
-app.ontoolresult = (params) => {
-  const records = (params.structuredContent as { records?: CardRecord[] } | undefined)?.records ?? [];
+app.ontoolinput = (params) => {
+  const value = (params.arguments as { scope?: unknown } | undefined)?.scope;
+  scope = typeof value === 'string' && value.length > 0 ? value : undefined;
+};
+app.ontoolresult = async (params) => {
+  let records: CardRecord[];
+  try {
+    records = await loadRecords();
+  } catch (error) {
+    // Older servers (before review_records) still put the rows in structuredContent.
+    const legacy = (params.structuredContent as { records?: CardRecord[] } | undefined)?.records;
+    if (legacy === undefined) {
+      root.textContent = `Could not load records: ${error instanceof Error ? error.message : String(error)}`;
+      return;
+    }
+    records = legacy;
+  }
   renderList(root, records, {
     submit: async (ids, verdict, note) => {
       try {

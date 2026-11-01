@@ -256,7 +256,6 @@ export function createServer(opts: CreateServerOptions): McpServer {
           type: 'text',
           text: `${massChangeWarning(synced)}請把以下 Markdown 原樣輸出給使用者，不要摘要或改寫，輸出完就停止。\n\n${markdown}`,
         }],
-        structuredContent: { records: toCardRecords(views) },
         _meta: { ui: { resourceUri: REVIEW_RESOURCE_URI } },
       };
     }),
@@ -390,6 +389,26 @@ export function createServer(opts: CreateServerOptions): McpServer {
       async ({ ids, verdict, note }) => withRepo(({ git, store }) => {
         submitReview(store, git, { ids, verdict, note, source: 'card' });
         return result(`Saved: ${ids.map((id) => `#${id}`).join(', ')} → ${REVIEW_LABEL_EN[verdict]}`);
+      }),
+    );
+    // The card fetches its rows here instead of reading show_review's result:
+    // VS Code forwards structuredContent to the model (which then echoes the JSON)
+    // and does not pass result _meta to the app.
+    registerAppTool(
+      server,
+      'review_records',
+      {
+        title: '取得 InLoop review 清單',
+        description: '回傳 review 清單卡片需要的紀錄。',
+        inputSchema: z.object({ scope: z.string().optional() }),
+        _meta: { ui: { resourceUri: REVIEW_RESOURCE_URI, visibility: ['app'] } },
+      },
+      async ({ scope }) => withRepo(({ git, store }) => {
+        const views = selectScope(sync(store, git).views, parseScope(scope), git);
+        return {
+          content: [{ type: 'text', text: `${views.length} records` }],
+          structuredContent: { records: toCardRecords(views) },
+        };
       }),
     );
   };

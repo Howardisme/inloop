@@ -76,6 +76,18 @@ function text(result: Awaited<ReturnType<Client['callTool']>>): string {
   return first !== undefined && first.type === 'text' ? first.text : '';
 }
 
+// The card fetches its records through the app-only review_records tool, so
+// show_review's result (which VS Code forwards to the model) carries no JSON.
+async function cardRecords(client: Client, scope?: string): Promise<unknown> {
+  const result = await client.callTool({ name: 'review_records', arguments: scope ? { scope } : {} });
+  return (result.structuredContent as { records?: unknown } | undefined)?.records;
+}
+
+function expectNoCardJson(result: Awaited<ReturnType<Client['callTool']>>): void {
+  expect(result.structuredContent).toBeUndefined();
+  expect(JSON.stringify(result._meta ?? {})).not.toContain('records');
+}
+
 function recordArguments(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     title: '加入答案常數',
@@ -93,23 +105,26 @@ async function record(client: Client, overrides: Record<string, unknown> = {}) {
 }
 
 describe('InLoop MCP server', () => {
-  test('no-ui client does not list submit_review', async () => {
+  test('no-ui client does not list submit_review or review_records', async () => {
     const repo = repoWithChange();
     const { client } = await connect(repo.dir);
 
     const names = (await client.listTools()).tools.map((tool) => tool.name);
 
     expect(names).not.toContain('submit_review');
+    expect(names).not.toContain('review_records');
   });
 
-  test('ui client lists submit_review with visibility ["app"]', async () => {
+  test('ui client lists submit_review and review_records with visibility ["app"]', async () => {
     const repo = repoWithChange();
     const { client } = await connect(repo.dir, UI_CAPABILITIES);
 
-    const tool = (await client.listTools()).tools.find((candidate) => candidate.name === 'submit_review');
-
-    const meta = tool?._meta as { ui?: { visibility?: string[] } } | undefined;
-    expect(meta?.ui?.visibility).toEqual(['app']);
+    const tools = (await client.listTools()).tools;
+    for (const name of ['submit_review', 'review_records']) {
+      const tool = tools.find((candidate) => candidate.name === name);
+      const meta = tool?._meta as { ui?: { visibility?: string[] } } | undefined;
+      expect(meta?.ui?.visibility).toEqual(['app']);
+    }
   });
 
   test('record_change then show_review', async () => {
@@ -122,7 +137,8 @@ describe('InLoop MCP server', () => {
     expect(text(recorded)).toBe('已記錄 #1：加入答案常數');
     expect(text(shown)).toContain('### #1 加入答案常數');
     expect(text(shown)).toContain('> **Key point:**');
-    expect(shown.structuredContent).toMatchObject({ records: [{ id: 1, file: 'src/example.ts' }] });
+    expectNoCardJson(shown);
+    expect(await cardRecords(client)).toMatchObject([{ id: 1, file: 'src/example.ts' }]);
     const meta = shown._meta as { ui?: { resourceUri?: string } } | undefined;
     expect(meta?.ui?.resourceUri).toBe(REVIEW_RESOURCE_URI);
   });
@@ -168,7 +184,7 @@ describe('InLoop MCP server', () => {
       },
     });
     expect(text(result)).toContain('#1');
-    expect(shown.structuredContent).toMatchObject({ records: [{ id: 1, review: 'confirmed' }] });
+    expect(text(shown)).toContain('### #1 加入答案常數 `confirmed`');
   });
 
   test('confirm_list cancel writes nothing', async () => {
@@ -184,7 +200,7 @@ describe('InLoop MCP server', () => {
     const shown = await client.callTool({ name: 'show_review', arguments: {} });
 
     expect(text(result)).toContain('取消');
-    expect(shown.structuredContent).toMatchObject({ records: [{ id: 1, review: 'unreviewed' }] });
+    expect(text(shown)).toContain('### #1 加入答案常數 `unreviewed`');
   });
 
   test('bad repo path returns isError and the server keeps responding', async () => {
@@ -289,11 +305,10 @@ describe('InLoop MCP server', () => {
       name: 'submit_review',
       arguments: { ids: [1, 2], verdict: 'confirmed', note: '已理解' },
     });
-    const shown = await client.callTool({ name: 'show_review', arguments: { scope: 'all' } });
 
     expect(text(submitted)).toBe('Saved: #1, #2 → confirmed');
-    expect(shown.structuredContent).toMatchObject({
-      records: [{ id: 1, review: 'confirmed' }, { id: 2, review: 'confirmed' }],
-    });
+    expect(await cardRecords(client, 'all')).toMatchObject([
+      { id: 1, review: 'confirmed' }, { id: 2, review: 'confirmed' },
+    ]);
   });
 });
