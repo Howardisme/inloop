@@ -39,6 +39,7 @@ interface HunkDbRow {
   new_start: number;
   added: string;
   removed: string;
+  span: string | null;
   context_before: string;
   context_after: string;
   fingerprint: string;
@@ -88,6 +89,9 @@ function hunkFromRow(row: HunkDbRow): StoredHunk {
     newStart: row.new_start,
     added: parseJson<string[]>(row.added),
     removed: parseJson<string[]>(row.removed),
+    ...(row.span === null
+      ? {}
+      : { span: parseJson<Array<{ text: string; added: boolean }>>(row.span) }),
     contextBefore: parseJson<string[]>(row.context_before),
     contextAfter: parseJson<string[]>(row.context_after),
     fingerprint: row.fingerprint,
@@ -124,7 +128,7 @@ class SqliteStore implements Store {
 
   private hunks(changeId: number): StoredHunk[] {
     const rows = this.db.prepare(`
-      SELECT file, old_start, new_start, added, removed, context_before, context_after, fingerprint
+      SELECT file, old_start, new_start, added, removed, span, context_before, context_after, fingerprint
       FROM hunks WHERE change_id = ? ORDER BY position
     `).all(changeId) as unknown as HunkDbRow[];
     return rows.map(hunkFromRow);
@@ -188,9 +192,9 @@ class SqliteStore implements Store {
       const id = Number(result.lastInsertRowid);
       const insertHunk = this.db.prepare(`
         INSERT INTO hunks (
-          change_id, position, file, old_start, new_start, added, removed,
+          change_id, position, file, old_start, new_start, added, removed, span,
           context_before, context_after, fingerprint
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       change.hunks.forEach((hunk, position) => {
         insertHunk.run(
@@ -201,6 +205,7 @@ class SqliteStore implements Store {
           hunk.newStart,
           JSON.stringify(hunk.added),
           JSON.stringify(hunk.removed),
+          hunk.span === undefined ? null : JSON.stringify(hunk.span),
           JSON.stringify(hunk.contextBefore),
           JSON.stringify(hunk.contextAfter),
           hunk.fingerprint,
@@ -265,7 +270,7 @@ class SqliteStore implements Store {
     if (rows.length === 0) return [];
 
     const hunkRows = this.db.prepare(`
-      SELECT change_id, file, old_start, new_start, added, removed,
+      SELECT change_id, file, old_start, new_start, added, removed, span,
         context_before, context_after, fingerprint
       FROM hunks ORDER BY change_id, position
     `).all() as unknown as Array<HunkDbRow & { change_id: number }>;

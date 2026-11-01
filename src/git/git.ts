@@ -173,6 +173,7 @@ class CliGit implements Git {
           newLines: lines.length,
           added: lines,
           removed: [],
+          span: lines.map((line) => ({ text: line, added: true })),
           contextBefore: [],
           contextAfter: [],
           fingerprint: fingerprint(lines),

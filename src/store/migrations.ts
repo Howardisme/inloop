@@ -72,4 +72,5 @@ export const migrations: readonly string[] = [
       status TEXT NOT NULL
     );
   `,
+  `ALTER TABLE hunks ADD COLUMN span TEXT`,
 ];

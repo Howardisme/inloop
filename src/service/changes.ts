@@ -100,6 +100,7 @@ function storedHunks(git: Git, files: string[]): StoredHunk[] {
     newStart: hunk.newStart,
     added: hunk.added,
     removed: hunk.removed,
+    span: hunk.span,
     contextBefore: hunk.contextBefore,
     contextAfter: hunk.contextAfter,
     fingerprint: hunk.fingerprint,

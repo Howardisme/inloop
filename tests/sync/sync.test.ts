@@ -40,6 +40,23 @@ describe('sync', () => {
     return view as NonNullable<typeof view>;
   }
 
+  test('multi-block hunk is present right after recording', () => {
+    const ctx = setup();
+    const original = Array.from({ length: 12 }, (_, index) => `line ${index + 1}`);
+    ctx.repo.write('code.ts', `${original.join('\n')}\n`);
+    ctx.repo.commit('add source');
+    const changed = [...original];
+    changed[1] = 'line 2 changed';
+    changed[4] = 'line 5 changed';
+    ctx.repo.write('code.ts', `${changed.join('\n')}\n`);
+
+    const change = seedChange(ctx.store, ctx.git, { files: ['code.ts'] });
+    const view = viewFor(change.id);
+
+    expect(change.hunks).toHaveLength(1);
+    expect(view).toMatchObject({ existence: 'present', ratio: 1 });
+  });
+
   test('user edits part of recorded code', () => {
     const ctx = setup();
     ctx.repo.write('code.ts', 'const a = 0;\nconst b = 0;\nconst c = 0;\nconst d = 0;\n');
@@ -237,8 +254,8 @@ describe('sync', () => {
       ...change,
       title: '加權紀錄',
       hunks: [
-        { ...original as ChangeRow['hunks'][number], added: ['missing'] },
-        { ...original as ChangeRow['hunks'][number], added: ['const a = 1;', '', 'const b = 1;', 'const c = 1;'] },
+        { ...original as ChangeRow['hunks'][number], added: ['missing'], span: undefined },
+        { ...original as ChangeRow['hunks'][number], added: ['const a = 1;', '', 'const b = 1;', 'const c = 1;'], span: undefined },
       ],
       supersedes: [],
     });

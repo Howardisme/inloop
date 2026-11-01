@@ -8,6 +8,7 @@ export interface Hunk {
   newLines: number;
   added: string[];
   removed: string[];
+  span: Array<{ text: string; added: boolean }>;
   contextBefore: string[];
   contextAfter: string[];
   fingerprint: string;
@@ -72,6 +73,9 @@ export function parseUnifiedDiff(text: string): FileDiff[] {
     if (!currentHunk) {
       return;
     }
+    while (currentHunk.span.at(-1)?.added === false) {
+      currentHunk.span.pop();
+    }
     currentHunk.fingerprint = fingerprint(
       currentHunk.added.length > 0 ? currentHunk.added : currentHunk.removed,
     );
@@ -115,6 +119,7 @@ export function parseUnifiedDiff(text: string): FileDiff[] {
         newLines: header[4] === undefined ? 1 : Number(header[4]),
         added: [],
         removed: [],
+        span: [],
         contextBefore: [],
         contextAfter: [],
         fingerprint: '',
@@ -127,6 +132,7 @@ export function parseUnifiedDiff(text: string): FileDiff[] {
     if (currentHunk && line !== '\\ No newline at end of file') {
       if (line.startsWith('+')) {
         currentHunk.added.push(line.slice(1));
+        currentHunk.span.push({ text: line.slice(1), added: true });
         currentHunk.contextAfter = [];
         sawChange = true;
         continue;
@@ -141,6 +147,9 @@ export function parseUnifiedDiff(text: string): FileDiff[] {
         const context = line.slice(1);
         if (sawChange) {
           currentHunk.contextAfter.push(context);
+          if (currentHunk.span.length > 0) {
+            currentHunk.span.push({ text: context, added: false });
+          }
         } else {
           currentHunk.contextBefore.push(context);
         }

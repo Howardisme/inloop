@@ -58,6 +58,18 @@ describe('Git', () => {
     });
   });
 
+  it('gives every untracked file line an added span entry', () => {
+    const testRepo = repo();
+    testRepo.write('new.ts', 'first\nsecond\n');
+
+    const [diff] = openGit(testRepo.dir).diffWorkingTree(['new.ts']);
+
+    expect(diff?.hunks[0]?.span).toEqual([
+      { text: 'first', added: true },
+      { text: 'second', added: true },
+    ]);
+  });
+
   it('filters working-tree diffs and skips binary files', () => {
     const testRepo = repo();
     testRepo.write('one.ts', 'one\n');

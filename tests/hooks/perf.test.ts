@@ -39,6 +39,7 @@ describe('hook performance', () => {
           newStart: hunk.newStart,
           added: hunk.added,
           removed: hunk.removed,
+          span: hunk.span,
           contextBefore: hunk.contextBefore,
           contextAfter: hunk.contextAfter,
           fingerprint: hunk.fingerprint,

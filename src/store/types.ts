@@ -20,6 +20,7 @@ export interface StoredHunk {
   newStart: number;
   added: string[];
   removed: string[];
+  span?: Array<{ text: string; added: boolean }>;
   contextBefore: string[];
   contextAfter: string[];
   fingerprint: string;

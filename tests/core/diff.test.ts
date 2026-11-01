@@ -31,6 +31,38 @@ index 1111111..2222222 100644
     });
   });
 
+  it('captures span with interior context', () => {
+    const [file] = parseUnifiedDiff(`diff --git a/code.ts b/code.ts
+--- a/code.ts
++++ b/code.ts
+@@ -1,5 +1,5 @@
+-const a = 1
++const a = 2
+ const keep = 0
+-const b = 1
++const b = 2
+ const end = 0
+`);
+
+    expect(file?.hunks[0]?.span).toEqual([
+      { text: 'const a = 2', added: true },
+      { text: 'const keep = 0', added: false },
+      { text: 'const b = 2', added: true },
+    ]);
+  });
+
+  it('uses an empty span for deletion-only hunks', () => {
+    const [file] = parseUnifiedDiff(`diff --git a/code.ts b/code.ts
+--- a/code.ts
++++ b/code.ts
+@@ -1,2 +1 @@
+-first
+ second
+`);
+
+    expect(file?.hunks[0]?.span).toEqual([]);
+  });
+
   it('preserves changes that resemble file headers', () => {
     const [file] = parseUnifiedDiff(`diff --git a/src/headings.ts b/src/headings.ts
 --- a/src/headings.ts

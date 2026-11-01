@@ -82,6 +82,73 @@ describe('matchHunk', () => {
     });
   });
 
+  it('interleaved context hunk is present when unchanged', () => {
+    const interleaved = {
+      added: ['const a = 2', 'const b = 2'],
+      removed: ['const a = 1', 'const b = 1'],
+      span: [
+        { text: 'const a = 2', added: true },
+        { text: 'const keep = 0', added: false },
+        { text: 'const b = 2', added: true },
+      ],
+    };
+
+    expect(matchHunk(interleaved, 'const a = 2\nconst keep = 0\nconst b = 2\nconst end = 0\n')).toEqual({
+      ratio: 1,
+      existence: 'present',
+      startLine: 1,
+      endLine: 3,
+    });
+  });
+
+  it('editing one added line in an interleaved hunk is partial', () => {
+    const interleaved = {
+      added: ['const a = 2', 'const b = 2'],
+      removed: [],
+      span: [
+        { text: 'const a = 2', added: true },
+        { text: 'const keep = 0', added: false },
+        { text: 'const b = 2', added: true },
+      ],
+    };
+
+    expect(matchHunk(interleaved, 'const a = 2\nconst keep = 0\nconst b = 3\n')).toEqual({
+      ratio: 0.5,
+      existence: 'partial',
+      startLine: 1,
+      endLine: 2,
+    });
+  });
+
+  it('editing an interior context line counts against the run', () => {
+    const interleaved = {
+      added: ['const a = 2', 'const b = 2'],
+      removed: [],
+      span: [
+        { text: 'const a = 2', added: true },
+        { text: 'const keep = 0', added: false },
+        { text: 'const b = 2', added: true },
+      ],
+    };
+
+    const result = matchHunk(interleaved, 'const a = 2\nconst keep = 1\nconst b = 2\n');
+
+    expect(result.ratio).toBeLessThan(1);
+    expect(result).toMatchObject({ ratio: 0.5, startLine: 1, endLine: 1 });
+  });
+
+  it('legacy hunk without span keeps old behavior', () => {
+    expect(matchHunk(
+      hunk(['const a = 2', 'const b = 2']),
+      'const a = 2\nconst keep = 0\nconst b = 2\nconst end = 0\n',
+    )).toEqual({
+      ratio: 0.5,
+      existence: 'partial',
+      startLine: 1,
+      endLine: 1,
+    });
+  });
+
   it('handles deletion-only hunks', () => {
     const deletion = hunk([], ['deleted one', 'deleted two']);
 
@@ -115,6 +182,18 @@ describe('matchHunk', () => {
       startLine: null,
       endLine: null,
     });
+  });
+
+  it('stays fast with span on repetitive input', () => {
+    const lines = Array.from({ length: 2_000 }, () => '}');
+    const span = lines.map((text) => ({ text, added: true }));
+    const startedAt = performance.now();
+
+    const result = matchHunk({ added: lines, removed: [], span }, lines.join('\n'));
+    const elapsed = performance.now() - startedAt;
+
+    expect(result.ratio).toBe(1);
+    expect(elapsed).toBeLessThan(200);
   });
 
   it('stays fast on repetitive input', () => {

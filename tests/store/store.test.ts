@@ -24,6 +24,7 @@ function newChange(overrides: Partial<NewChange> = {}): NewChange {
       oldStart: 2,
       newStart: 3,
       added: ['const value = 1;'],
+      span: [{ text: 'const value = 1;', added: true }],
       removed: ['const value = 0;'],
       contextBefore: ['function run() {'],
       contextAfter: ['}'],
@@ -72,6 +73,32 @@ describe('store', () => {
     expect(new Date(inserted.createdAt).toISOString()).toBe(inserted.createdAt);
     expect(store.getChange(inserted.id)).toEqual(inserted);
     expect(store.listChanges()).toEqual([inserted]);
+  });
+
+  test('span round-trips', () => {
+    const { store } = setup();
+    const span = [
+      { text: 'const value = 1;', added: true },
+      { text: 'const keep = true;', added: false },
+    ];
+
+    const inserted = store.insertChange(newChange({
+      hunks: [{ ...newChange().hunks[0]!, span }],
+    }));
+
+    expect(inserted.hunks[0]?.span).toEqual(span);
+    expect(store.getChange(inserted.id)?.hunks[0]?.span).toEqual(span);
+  });
+
+  test('a hunk inserted without span reads back undefined', () => {
+    const { store } = setup();
+    const legacyHunk = { ...newChange().hunks[0] };
+    delete legacyHunk.span;
+
+    const inserted = store.insertChange(newChange({ hunks: [legacyHunk] }));
+
+    expect(inserted.hunks[0]?.span).toBeUndefined();
+    expect(store.getChange(inserted.id)?.hunks[0]?.span).toBeUndefined();
   });
 
   test('insert rolls back all rows when a dependent write fails', () => {
@@ -201,6 +228,35 @@ describe('store', () => {
     expect(store.reviews(first.id)).toEqual([]);
     expect(store.getStatusCache().has(first.id)).toBe(false);
     expect(store.getChange(second.id)?.supersedes).toEqual([]);
+  });
+
+  test('upgrades a migration-1 database and leaves old hunk spans undefined', () => {
+    repo = makeRepo();
+    const dbPath = join(repo.dir, 'legacy.db');
+    const legacy = new DatabaseSync(dbPath);
+    legacy.exec(migrations[0] as string);
+    legacy.exec('PRAGMA user_version = 1');
+    legacy.prepare(`
+      INSERT INTO changes (
+        id, version, title, key_point, what_how, why, should_know, core_diff,
+        branch, base_head, client, model, created_at, commit_sha
+      ) VALUES (1, 1, 'legacy', 'key', 'what', 'why', '[]', '', NULL, NULL, NULL, NULL, 'now', NULL)
+    `).run();
+    legacy.prepare(`
+      INSERT INTO hunks (
+        change_id, position, file, old_start, new_start, added, removed,
+        context_before, context_after, fingerprint
+      ) VALUES (1, 0, 'legacy.ts', 1, 1, '["new"]', '["old"]', '[]', '[]', 'fp')
+    `).run();
+    legacy.close();
+
+    store = openStore(dbPath);
+    const inspect = new DatabaseSync(dbPath);
+    const row = inspect.prepare('PRAGMA user_version').get() as { user_version: number };
+    inspect.close();
+
+    expect(row.user_version).toBe(2);
+    expect(store.getChange(1)?.hunks[0]?.span).toBeUndefined();
   });
 
   test('migrations are idempotent', () => {
