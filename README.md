@@ -2,14 +2,16 @@
 
 **Review what GitHub Copilot changed — and why, right in Copilot Chat.**
 
-InLoop is a review companion for GitHub Copilot. Every time Copilot's agent changes your code, it leaves a short record — what changed, why, and what you should know — so the code you ship doesn't quietly pile up as **comprehension debt**. You review those records without leaving Copilot Chat: read them as Markdown, highlight any line and use **Ask in Side Panel** to dig into a detail without breaking the main chat's reading order, and confirm what you understand from a compact card. Under the hood it's a local MCP server built only on what Copilot already supports — MCP tools, MCP Apps and custom instructions — so there's nothing to patch and nothing leaves your machine.
+InLoop is a review companion for GitHub Copilot. Every time Copilot's agent changes your code, it leaves a short record — what changed, why, and what you should know — so the code you ship doesn't quietly pile up as **comprehension debt**.
+
+You can review those records without leaving Copilot Chat: read them as Markdown, highlight any line and use **Ask in Side Panel** to dig into a detail without breaking the main chat's reading order, and confirm what you understand from a compact card. Under the hood it's a local MCP server built only on what Copilot already supports — MCP tools, MCP Apps and custom instructions — so there's nothing to patch and nothing leaves your machine.
 
 > [!NOTE]
 > **Comprehension debt** is the gap between how much code a system has and how much of it anyone truly understands ([Addy Osmani](https://addyosmani.com/blog/comprehension-debt/), [O'Reilly](https://www.oreilly.com/radar/comprehension-debt-the-hidden-cost-of-ai-generated-code/)). AI agents widen it fast: in an Anthropic randomized trial with 52 engineers, the group that learned a new library with AI finished about as fast but scored 17% lower on comprehension (50% vs 67%). In InLoop, your unreviewed records are your comprehension debt — `inloop list` and the commit hook show how much you have.
 
 InLoop started from a constraint: during my internship, GitHub Copilot was the only AI coding tool I could use. Existing tools record who wrote a line (git-ai) or how the agent reasoned (Entire), but none of them help a Copilot user review what the agent just did. InLoop fills that gap inside the tool you're already allowed to use.
 
-In the age of AI, internships and jobs all demand output. AI-generated code and implementations keep pushing us forward. Of course we can ship faster with AI, but shipping faster doesn't make us better engineers. Our hope is that reviewing each change — its What, How and Why — becomes the moment we learn, so that speed and growth go together.
+In the age of AI, internships and jobs all demand output. AI-generated code and implementations keep pushing us forward. Of course we can ship faster with AI, but shipping faster doesn't make us better engineers. I hope that by reviewing each change properly — its What, How and Why — we can truly learn from it, so speed and growth go together.
 
 ## Why InLoop
 
