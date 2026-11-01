@@ -139,6 +139,35 @@ describe('git hooks', () => {
     expect(captured.err).toHaveLength(1);
     expect(captured.err[0]).toContain('InLoop hook 警告：');
   });
+  test('hook command accepts the arguments git passes to every hook', async () => {
+    const { repo, ctx } = setup();
+    ctx.store.close();
+
+    for (const args of [
+      ['hook', 'pre-push', 'origin', 'D:/some remote.git'],
+      ['hook', 'pre-commit'],
+      ['hook', 'post-commit'],
+      ['hook', 'post-rewrite', 'amend'],
+    ]) {
+      const captured = capture(repo.dir);
+      expect(await runCli(args, captured.io)).toBe(0);
+      expect(captured.err).toEqual([]);
+    }
+  });
+
+  test('installed pre-push hook lets a real push through', () => {
+    const { repo, ctx } = setup();
+    init(ctx.git, cliPath, { mcp: 'none', instructions: 'none', hooks: true }, capture(repo.dir).io);
+    ctx.store.close();
+    const remote = join(repo.dir, '..', 'remote.git');
+    execFileSync('git', ['init', '--bare', '-q', remote]);
+    repo.git('remote', 'add', 'origin', remote);
+
+    repo.git('push', '-q', 'origin', 'main');
+    expect(execFileSync('git', ['--git-dir', remote, 'rev-parse', 'main'], { encoding: 'utf8' }).trim())
+      .toBe(repo.git('rev-parse', 'HEAD'));
+  });
+
   test('installed hooks run end-to-end', () => {
     const { repo, ctx } = setup();
     const id = recordChineseFile(repo, ctx);

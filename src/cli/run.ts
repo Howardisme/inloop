@@ -176,16 +176,11 @@ function prepare(argv: string[], io: CliIo): PreparedCommand {
       return { kind: 'repo', run: (context) => deleteCommand(context, id, parsed.values.yes, io.out) };
     }
     case 'hook': {
-      const parsed = parseArgs({ args, options: {}, allowPositionals: true });
+      // Git passes hook-specific arguments (pre-push: remote name and URL; post-rewrite: type),
+      // so accept any trailing positionals instead of failing the user's git command.
+      const parsed = parseArgs({ args, options: {}, allowPositionals: true, strict: false });
       const name = parsed.positionals[0];
       if (!isHookName(name)) throw new UsageError('不支援的 hook 名稱。');
-      const rewriteType = parsed.positionals[1];
-      const validRewrite = name === 'post-rewrite'
-        && parsed.positionals.length === 2
-        && (rewriteType === 'amend' || rewriteType === 'rebase');
-      if (parsed.positionals.length !== 1 && !validRewrite) {
-        throw new UsageError('指令參數數量不正確。');
-      }
       return { kind: 'hook', name };
     }
     case 'init': {
