@@ -4,7 +4,7 @@
 
 In the age of AI, internships and jobs all demand output. AI-generated answers and implementations keep pushing us forward: we ship faster, yet we don't become better engineers, because learning isn't in the loop. InLoop keeps the What, How and Why of every AI change — plus what you should know — right next to your repo, so understanding grows together with the code.
 
-Under the hood, InLoop is a local MCP server. GitHub Copilot leaves a short, structured record for each change it makes; you review the records in chat, confirm the ones you understand, and look them up later by file, by line, or at commit time. Nothing leaves your machine.
+Under the hood, InLoop is a local MCP server. GitHub Copilot leaves a short, structured record for each change it makes; you review the records right in Copilot Chat, confirm the ones you understand, and look them up later by file, by line, or at commit time. Because each record is plain Markdown in the chat, you can highlight any line and use **Ask in Side Panel** to dig into that detail — the answer opens beside the conversation, so you learn the specifics without breaking the main chat's reading order. Nothing leaves your machine.
 
 ## The problem: comprehension debt
 
