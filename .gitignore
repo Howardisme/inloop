@@ -6,4 +6,5 @@ spikes/**/spike-*.json*
 *.log
 .superpowers/
 Inloop.md
-docs/
+docs/*
+!docs/faq.md

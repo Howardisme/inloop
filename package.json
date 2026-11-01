@@ -2,6 +2,7 @@
   "name": "inloop",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "bin": {
     "inloop": "dist/cli/main.js"

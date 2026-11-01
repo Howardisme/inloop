@@ -1,94 +1,163 @@
 # InLoop
 
-InLoop 是在本機執行的 MCP server，讓 GitHub Copilot 為程式碼改動留下結構化的理解紀錄，再由開發者 review、確認並寫下自己的理解。
+**Know what your AI agent changed — and why.**
 
-> **Put learning back in the loop.**
+In the age of AI, internships and jobs all demand output. AI-generated answers and implementations keep pushing us forward: we ship faster, yet we don't become better engineers, because learning isn't in the loop. InLoop keeps the What, How and Why of every AI change — plus what you should know — right next to your repo, so understanding grows together with the code.
 
-## 需求
+Under the hood, InLoop is a local MCP server. GitHub Copilot leaves a short, structured record for each change it makes; you review the records in chat, confirm the ones you understand, and look them up later by file, by line, or at commit time. Nothing leaves your machine.
 
-- Node.js >= 22.13
-- Git
-- VS Code 與 GitHub Copilot（使用 MCP 功能時）
+## The problem: comprehension debt
 
-## 安裝
+AI agents now write code faster than people can understand it. Addy Osmani named this gap **comprehension debt** ([Addy Osmani](https://addyosmani.com/blog/comprehension-debt/), [O'Reilly](https://www.oreilly.com/radar/comprehension-debt-the-hidden-cost-of-ai-generated-code/)): the codebase keeps growing while the part anyone truly understands keeps shrinking.
 
-```powershell
-npm install
-npm run build
-npm link
+- **It's invisible.** Tests pass and the code looks clean; no metric shows understanding slipping away.
+- **It's measurable.** In an Anthropic randomized trial with 52 engineers, the group that learned a new library with AI finished about as fast but scored 17% lower on comprehension (50% vs 67%), with debugging hit hardest.
+- **Passive use hurts most.** Engineers who handed work to the AI passively lost more than those who kept asking questions.
+
+With Copilot in agent mode, this shows up as everyday problems:
+
+| Without InLoop | With InLoop |
+| --- | --- |
+| Copilot touched 6 files, edited some twice, and left one big diff | One record per reason, with a key point and only the hunks that matter |
+| The "why" disappears when the chat closes | Records live next to your repo and follow your commits |
+| The next session undoes last week's decision | Copilot reads past records before editing a file |
+| Nothing tells you how much you don't understand | Unreviewed records are your comprehension debt — shown by `inloop list` and at commit |
+
+## How it works
+
+```mermaid
+flowchart LR
+  you([You]) -- chat --> agent[Copilot agent]
+  agent -- "record_change · why · show_review" --> server[InLoop MCP server]
+  server -- review card --> card[List card<br/>in chat]
+  card -- "submit_review (app-only)" --> server
+  you -- terminal --> cli[inloop CLI]
+  git[git commit / push] --> hooks[git hooks] --> cli
+  server & cli --> sync[sync]
+  sync --> db[(.git/inloop/inloop.db)]
+  sync --> code[working tree]
 ```
 
-在要使用 InLoop 的 Git repository 中執行：
+1. **Record.** After each meaningful change, Copilot calls `record_change`. InLoop takes the hunks from `git diff`, fingerprints them, and skips anything already recorded. `find_unrecorded` and the pre-commit hook catch changes the agent forgot.
+2. **Review.** `/inloop.review` prints the records as Markdown and shows a list card. Press **Confirmed**, **Incorrect** or **Not important**, or say "open the confirm list" to tick several at once. Highlight any line of the Markdown and use **Ask in Side Panel** to dig in.
+3. **Stay true.** Records are append-only. Every read runs `sync`, which matches each record's hunks against the current files and derives its status. Nothing about the code's state is stored as fact, so edits, reverts, amends, rebases and renames never leave stale records.
+4. **Look it up.** Ask "why is line 42 of `retry.ts` written this way?" — Copilot calls `why` and gets the records covering that line.
 
-```powershell
+### A record
+
+```markdown
+### #14 Retry uses exponential backoff `unreviewed`
+> **Key point:** Wait time doubles after each failure so the downstream service can recover.
+
+- **What & How:** Fixed 1s retry → 1, 2, 4, 8s, max 5 attempts (`retry.ts`).
+- **Why:** A fixed interval makes every client retry at the same moment when the service is down.
+- **You should know**
+  - **Concept** | Jitter adds random delay so clients don't retry in sync.
+  - **Risk** | The 5-attempt limit is hard-coded.
+```
+
+### Status
+
+| Existence | Meaning |
+| --- | --- |
+| `present` | ≥ 90% of the recorded lines are still in the file |
+| `modified` | 10–90% remain — someone edited it since |
+| `gone` | < 10% remain |
+| `discarded` | Gone before it was ever committed |
+| `superseded` | A newer record explicitly replaced it |
+
+| Review | Meaning |
+| --- | --- |
+| `unreviewed` | Not reviewed yet (or the record was amended) |
+| `confirmed` | You confirmed the key point |
+| `changed after confirm` | The code changed after you confirmed it |
+| `incorrect` | You marked the explanation wrong; the agent should amend it |
+| `not important` | Dropped from the review list |
+
+## Install
+
+**Requirements:** Node.js ≥ 22.13, Git, VS Code with GitHub Copilot.
+
+InLoop isn't on npm yet. Install from source:
+
+```bash
+git clone https://github.com/Howardisme/inloop.git
+cd inloop
+npm install
+npm run build
+npm link            # puts `inloop` on your PATH
+```
+
+Then, in the repository you want to track:
+
+```bash
 inloop init
 ```
 
-### `inloop init` 會改動什麼
+By default `inloop init`:
 
-預設會：
+1. Appends a marked block to four git hooks (`pre-commit`, `post-commit`, `post-rewrite`, `pre-push`). Existing hook content is kept.
+2. Adds an `inloop` server to your VS Code user `mcp.json` (backed up once as `mcp.json.inloop-bak`).
+3. Adds agent instructions to `<VS Code User>/prompts/inloop.instructions.md` and a marked block in `~/.copilot/copilot-instructions.md`.
 
-1. 在 repository 的 hooks 目錄加入 InLoop 區塊，共四個 git hooks：`pre-commit`、`post-commit`、`post-rewrite`、`pre-push`；既有內容會保留。
-2. 在 VS Code 使用者的 `mcp.json` 加入 `inloop` server：
-   - Windows：`%APPDATA%\Code\User\mcp.json`
-   - macOS：`~/Library/Application Support/Code/User/mcp.json`
-   - Linux：`~/.config/Code/User/mcp.json`
-3. 建立 `<VS Code User>/prompts/inloop.instructions.md`。
-4. 在 `~/.copilot/copilot-instructions.md` 加入有起訖標記的 InLoop 區塊；既有內容會保留。
+| Option | Effect |
+| --- | --- |
+| `--mcp workspace` | Write `.vscode/mcp.json` in this repo instead |
+| `--mcp none` / `--instructions none` / `--no-hooks` | Skip that part |
+| `--instructions repo` | Write `.github/copilot-instructions.md` (gets committed) |
 
-若 `mcp.json` 已存在，第一次改寫前會備份為 `mcp.json.inloop-bak`。因 JSON 會重新序列化，原有註解會被移除，但可從備份取回。
+`inloop uninstall` removes exactly what InLoop added.
 
-常用選項：
+### FAQ
 
-```powershell
-inloop init --mcp workspace       # 改寫本 repo 的 .vscode/mcp.json
-inloop init --mcp none            # 不設定 MCP
-inloop init --instructions repo   # 改寫 .github/copilot-instructions.md
-inloop init --instructions none   # 不安裝 instructions
-inloop init --no-hooks            # 不安裝 git hooks
+For common installation and startup questions, see the [FAQ](docs/faq.md).
+
+## Usage
+
+**In Copilot Chat**
+
+| Say | What happens |
+| --- | --- |
+| `/inloop.review [scope]` | Show records — unreviewed (default), `all`, `today`, a file, or `since:<ref>` |
+| "open the confirm list" | A checklist form above the chat input; only you can submit it |
+| `/inloop.capture` | Record changes the agent missed |
+| `/inloop.why <file[:line]>` | Why is this code written this way? |
+
+**In the terminal**
+
+```bash
+inloop list                  # unreviewed records and your review backlog
+inloop why src/retry.ts:42   # records behind a file or line
+inloop confirm 3 4           # confirm without the chat UI
+inloop pr --base main        # a PR description section
+inloop export --format md    # export all records
 ```
 
-## 在 Copilot Chat 中使用
+**Settings**
 
-- 輸入 `/inloop.review` 顯示尚未 review 的紀錄；在 `copilot-cli` 對話中，這是由 Copilot 依 instructions 呼叫 `show_review`，不是執行 MCP prompt。
-- 說「開確認清單」，讓 Copilot 呼叫 `confirm_list` 開啟可複選的確認表單。
-- 在 review 內容中反白文字，再用 **Ask in Side Panel** 追問細節。
-- 在清單卡片直接使用 **Confirmed**、**說明不正確**、**不重要**與**全部確認**按鈕回覆。
-
-## CLI 日常用法
-
-```powershell
-inloop list                         # 列出尚未 review 的紀錄
-inloop list --scope all             # 列出全部紀錄
-inloop why src/example.ts:42        # 查詢檔案或指定行為何這樣改
-inloop confirm 1 2                  # 確認多筆紀錄
-inloop confirm 3 --verdict incorrect --note "原因"
-inloop pr --base main               # 產生可貼進 PR 的摘要
+```bash
+git config inloop.prePush block   # block pushes with unreviewed records (default: remind only)
+git config inloop.why off         # stop the agent from querying past records
 ```
 
-Git hooks 會協助同步紀錄。`pre-push` 預設只提醒；需要阻擋推送時可設定：
+## Privacy and security
 
-```powershell
-git config inloop.prePush block
-git config inloop.why off           # 關閉 why 查詢
-```
+- Local only: no network calls; data stays in `.git/inloop/inloop.db` (SQLite, WAL).
+- The agent can't confirm: `submit_review` is app-only and is registered only for clients that support MCP Apps.
+- Record text is untrusted: it is escaped in Markdown, rendered as plain text in the card, and returned to the agent marked as data, not instructions.
+- File paths are checked to stay inside the repository.
 
-移除 InLoop 安裝的 hooks、MCP entry 與 instructions：
+## Known limitations
 
-```powershell
-inloop uninstall
-```
+- Copilot CLI–style chats don't run MCP prompts; `/inloop.*` works because the installed instructions tell Copilot which tool to call.
+- Copilot Chat Markdown doesn't support `<details>`, so diffs are shown in full.
+- Git hooks can't prompt, so `pre-push` reminds by default instead of asking.
+- `inloop init` rewrites `mcp.json` without its comments (a backup is kept).
 
-`uninstall` 只移除 InLoop 管理的內容；`mcp.json.inloop-bak` 會保留供手動還原。
+## Contributing
 
-## 已知限制
+Contributions are welcome.See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 
-- `copilot-cli` 不執行 MCP prompts；`/inloop.review` 等指令靠 instructions 引導 Copilot 呼叫工具。
-- Copilot Chat Markdown 不支援 `<details>`，因此 review 內容不使用可收合區塊。
-- git hook 無法互動詢問，所以 `pre-push` 預設只提醒，不阻擋推送。
-- `init` 重寫 `mcp.json` 時會移除註解；修改前會建立 `mcp.json.inloop-bak`。
+## License
 
-## 文件
-
-- [產品報告](docs/product-report.md)
-- [設計文件](docs/design-doc.md)
+[MIT](LICENSE)  
