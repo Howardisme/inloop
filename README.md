@@ -12,7 +12,8 @@ You can review those records without leaving Copilot Chat: read them as Markdown
 InLoop started from a constraint: during my internship, GitHub Copilot was the only AI coding tool I could use. Existing tools record who wrote a line (git-ai) or how the agent reasoned (Entire), but none of them help a Copilot user review what the agent just did. InLoop fills that gap inside the tool you're already allowed to use.
 
 In the age of AI, internships and jobs all demand output. AI-generated code and implementations keep pushing us forward. Of course we can ship faster with AI, but shipping faster doesn't make us better engineers. I hope that by reviewing each change properly — its What, How and Why — we can truly learn from it, so speed and growth go together.
-
+> [!IMPORTANT]
+> **[Critical Thinking when agents do the work](https://x.com/addyosmani/article/2117512471930167377) (11/3, 2026)**. Recently, Anthropic Engineer Addy Osmani posted a new article talking about the critical thinking in the agentic era. The concept of comprehension debt is mentioned again in the article, and I think that's why this project existed: To Help Beginner Engineer like me to build the ability to think in this new engineering era. 
 ## Why InLoop
 
 | Without InLoop | With InLoop |
